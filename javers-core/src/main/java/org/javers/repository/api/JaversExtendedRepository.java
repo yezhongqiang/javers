@@ -155,6 +155,11 @@ public class JaversExtendedRepository implements JaversRepository {
     }
 
     @Override
+    public void persistList(List<Commit> commits) {
+        delegate.persistList(commits);
+    }
+
+    @Override
     public CommitId getHeadId() {
         return delegate.getHeadId();
     }

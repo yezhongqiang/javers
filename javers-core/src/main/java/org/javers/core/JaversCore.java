@@ -71,6 +71,11 @@ class JaversCore implements Javers {
         return commit(author, currentVersion, Collections.emptyMap());
     }
 
+    @Override
+    public List<Commit> commitList(String author, List<Object> currentVersions) {
+        return commitList(author, currentVersions, Collections.emptyMap());
+    }
+
     public CompletableFuture<Commit> commitAsync(String author, Object currentVersion, Executor executor) {
         return commitAsync(author, currentVersion, Collections.emptyMap(), executor);
     }
@@ -92,6 +97,28 @@ class JaversCore implements Javers {
 
         logger.info(commit.toString()+", done in "+ (stop-start)+ " ms (diff:{} ms, persist:{} ms)",(stopCreate-start), (stop-stopCreate));
         return commit;
+    }
+
+    @Override
+    public List<Commit> commitList(String author, List<Object> currentVersions, Map<String, String> commitProperties) {
+        long start = System.currentTimeMillis();
+
+        argumentIsNotNull(author);
+        argumentIsNotNull(commitProperties);
+        argumentIsNotNull(currentVersions);
+
+        List<Commit> commits = currentVersions.stream().map(currentVersion -> commitFactory.create(author, commitProperties, currentVersion)).collect(Collectors.toList());
+        long stopCreate = System.currentTimeMillis();
+
+        persistList(commits);
+        long stop = System.currentTimeMillis();
+
+        logger.info(Arrays.toString(commits.toArray())+", done in "+ (stop-start)+ " ms (diff:{} ms, persist:{} ms)",(stopCreate-start), (stop-stopCreate));
+        return commits;
+    }
+
+    private void persistList(List<Commit> commits) {
+        repository.persistList(commits);
     }
 
     private void assertJaversTypeNotValueTypeOrPrimitiveType(Object currentVersion) {

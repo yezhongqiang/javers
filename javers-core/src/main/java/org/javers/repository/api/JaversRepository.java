@@ -97,6 +97,8 @@ public interface JaversRepository {
 
     void persist(Commit commit);
 
+    default void persistList(List<Commit> commits) {throw new UnsupportedOperationException();}
+
     CommitId getHeadId();
 
     void setJsonConverter(JsonConverter jsonConverter);

@@ -68,6 +68,8 @@ public interface Javers {
      */
     Commit commit(String author, Object currentVersion, Map<String, String> commitProperties);
 
+    List<Commit> commitList(String author, List<Object> currentVersions);
+
     /**
      * Async version of {@link #commit(String, Object)}
      * <br/><br/>
@@ -78,6 +80,8 @@ public interface Javers {
      * @param executor ExecutorService to be used to process commit() asynchronously.
      */
     CompletableFuture<Commit> commitAsync(String author, Object currentVersion, Executor executor);
+
+    List<Commit> commitList(String author, List<Object> currentVersions, Map<String, String> commitProperties);
 
     /**
      * Async version of {@link #commit(String, Object, Map)}

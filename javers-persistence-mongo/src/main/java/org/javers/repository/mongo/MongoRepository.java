@@ -102,6 +102,17 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
         persistHeadId(commit, Optional.of(clientSession));
     }
 
+    @Override
+    public void persistList(List<Commit> commits) {
+        persistSnapshotsOfCommits(commits, Optional.empty());
+        persistHeadIdOfCommits(commits, Optional.empty());
+    }
+
+    public void persistList(List<Commit> commits, ClientSession clientSession) {
+        persistSnapshotsOfCommits(commits, Optional.of(clientSession));
+        persistHeadIdOfCommits(commits, Optional.of(clientSession));
+    }
+
     void clean(){
         snapshotsCollection().deleteMany(new Document());
         headCollection().deleteMany(new Document());
@@ -257,6 +268,36 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
         MongoCollection<Document> headIdCollection = headCollection();
 
         Document oldHead = headIdCollection.find().first();
+        MongoHeadId newHeadId = new MongoHeadId(commit.getId());
+
+        if (oldHead == null) {
+            transactionalInsert(headIdCollection, newHeadId.toDocument(), clientSession);
+        } else {
+            transactionalUpdate(headIdCollection, objectIdFiler(oldHead), newHeadId.getUpdateCommand(), clientSession);
+        }
+    }
+
+    private void persistSnapshotsOfCommits(List<Commit> commits, Optional<ClientSession> clientSession) {
+        MongoCollection<Document> collection = snapshotsCollection();
+        List<Document> documents = commits.stream().map(commit -> {
+            return commit.getSnapshots().stream().map(snapshot -> {
+                //TODO should be evicted on transaction rollback
+                cache.put(snapshot);
+                return writeToDBObject(snapshot);
+            }).collect(Collectors.toList());
+        }).flatMap(List::stream).collect(Collectors.toList());
+        transactionalInsertList(collection, documents, clientSession);
+    }
+
+    private void persistHeadIdOfCommits(List<Commit> commits, Optional<ClientSession> clientSession) {
+        if (coreConfiguration.getCommitIdGenerator() != CommitIdGenerator.SYNCHRONIZED_SEQUENCE) {
+            return;
+        }
+
+        MongoCollection<Document> headIdCollection = headCollection();
+
+        Document oldHead = headIdCollection.find().first();
+        Commit commit = commits.stream().max((c1, c2) -> c1.getId().compareTo(c2.getId())).get();
         MongoHeadId newHeadId = new MongoHeadId(commit.getId());
 
         if (oldHead == null) {
@@ -425,5 +466,13 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
             Optional<ClientSession> clientSession) {
         clientSession.map(s-> collection.updateOne(s, filter, update))
                 .orElseGet(() -> collection.updateOne(filter, update));
+    }
+
+    private void transactionalInsertList(
+            MongoCollection<Document> collection,
+            List<Document> documents,
+            Optional<ClientSession> clientSession) {
+        clientSession.map(s-> collection.insertMany(s, documents))
+                .orElseGet(() -> collection.insertMany(documents));
     }
 }

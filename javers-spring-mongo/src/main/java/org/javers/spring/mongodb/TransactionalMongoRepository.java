@@ -79,6 +79,15 @@ class TransactionalMongoRepository implements JaversRepository, ConfigurationAwa
     }
 
     @Override
+    public void persistList(List<Commit> commits) {
+        transactionTemplate.execute(status -> {
+            ClientSession session = ClientSessionExtractor.getFrom((DefaultTransactionStatus)status);
+            delegate.persistList(commits, session);
+            return null;
+        });
+    }
+
+    @Override
     public CommitId getHeadId() {
         return delegate.getHeadId();
     }
