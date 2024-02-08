@@ -1,5 +1,6 @@
 package org.javers.spring.auditable.aspect.springdata;
 
+import java.lang.annotation.Annotation;
 import org.aspectj.lang.JoinPoint;
 import org.javers.core.Javers;
 import org.javers.repository.jql.QueryBuilder;
@@ -25,7 +26,15 @@ public class AbstractSpringAuditableRepositoryAspect {
 
     protected void onSave(JoinPoint pjp, Object returnedObject) {
         getRepositoryInterface(pjp).ifPresent(i ->
-                AspectUtil.collectReturnedObjects(returnedObject).forEach(javersCommitAdvice::commitObject));
+                AspectUtil.collectReturnedObjects(returnedObject).forEach(object -> {
+                    JaversSpringDataAuditable javersSpringDataAuditable =
+                        (JaversSpringDataAuditable) i.getAnnotation(JaversSpringDataAuditable.class);
+                    if (javersSpringDataAuditable.value() == JaversSpringDataAuditable.AuditMode.SHALLOW) {
+                        javersCommitAdvice.commitShallowObject(object);
+                    } else {
+                        javersCommitAdvice.commitObject(object);
+                    }
+                }));
     }
 
     protected void onDelete(JoinPoint pjp) {

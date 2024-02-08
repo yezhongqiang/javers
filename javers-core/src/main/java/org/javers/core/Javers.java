@@ -68,6 +68,10 @@ public interface Javers {
      */
     Commit commit(String author, Object currentVersion, Map<String, String> commitProperties);
 
+    Commit commitShallow(String author, Object currentVersion);
+
+    Commit commitShallow(String author, Object currentVersion, Map<String, String> commitProperties);
+
     /**
      * Async version of {@link #commit(String, Object)}
      * <br/><br/>

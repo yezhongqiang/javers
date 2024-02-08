@@ -10,13 +10,15 @@ buildscript {
     dependencies {
         classpath 'org.owasp:dependency-check-gradle:3.1.2'
         classpath 'com.adarshr:gradle-test-logger-plugin:2.0.0'
-     }
+    }
 }
 
 plugins {
     id 'pl.allegro.tech.build.axion-release' version '1.10.1'
     id 'io.github.gradle-nexus.publish-plugin' version '1.1.0'
     id 'com.adarshr.test-logger' version '3.2.0'
+    id 'com.jfrog.artifactory' version "5.1.14"
+    id 'maven-publish'
 }
 
 scmVersion {
@@ -34,7 +36,7 @@ subprojects {
     apply plugin: 'com.adarshr.test-logger'
 
     project.group = 'org.javers'
-    project.version = scmVersion.version
+    project.version = 8.4
 
     repositories {
         mavenCentral()
@@ -159,4 +161,36 @@ nexusPublishing {
 
 wrapper() {
     gradleVersion = '7.6'
+}
+
+allprojects {
+    apply plugin: 'com.jfrog.artifactory'
+    repositories {
+        maven {
+            url "https://sc-hw-artf.nvidia.com/hwinf-gpuwa-maven-local"
+            credentials {
+                username "mengyaow"
+                password "cmVmdGtuOjAxOjE3MzcxMDkwOTM6b2tvRmgxem9YZzNFNEk0ck1ZektiQ0tUaHN0"
+            }
+        }
+    }
+}
+
+artifactory {
+    publish {
+        contextUrl = 'https://sc-hw-artf.nvidia.com'
+        repository {
+            repoKey = "hwinf-gpuwa-maven-local"
+            username = "mengyaow"
+            password = "cmVmdGtuOjAxOjE3MzcxMDkwOTM6b2tvRmgxem9YZzNFNEk0ck1ZektiQ0tUaHN0"
+        }
+        defaults {
+            publications('mavenJava')
+            publishArtifacts = true
+            publishBuildInfo = false
+            // Properties to be attached to the published artifacts.
+            properties.put("testUser", "mengyaow")
+            publishPom = true // Publish generated POM files to Artifactory (true by default)
+        }
+    }
 }

@@ -39,6 +39,7 @@ public class MongoSchemaManager {
 
     private final MongoDatabase mongo;
     private final String snapshotCollectionName;
+    private final String diffCollectionName = "jv_diffs";
     private final String headCollectionName;
 
     MongoSchemaManager(MongoDatabase mongo, String snapshotCollectionName, String headCollectionName) {
@@ -95,6 +96,9 @@ public class MongoSchemaManager {
         return mongo.getCollection(snapshotCollectionName);
     }
 
+    MongoCollection<Document> diffsCollection() {
+        return mongo.getCollection(diffCollectionName);
+    }
     MongoCollection<Document> headCollection() {
         return mongo.getCollection(headCollectionName);
     }

@@ -54,6 +54,23 @@ class ObjectGraphBuilder {
         return buildGraphFromCdo(cdo);
     }
 
+    LiveGraph buildShallowGraph(Object handle) {
+        argumentIsNotNull(handle);
+        LiveCdo cdo = cdoFactory.create(handle, null);
+        LiveNode root = edgeBuilder.buildNodeStub(cdo);
+        LiveNode stub = nodeReuser.pollStub();
+
+        buildEdges(stub);
+        List<LiveNode> nodes = nodeReuser.nodes();
+
+        enrichHashes(nodes);
+        reloadHashFromParent(nodes);
+        freezeValueObjectIds(nodes);
+        switchToBuilt();
+
+        return new LiveGraph(root, new HashSet<>(nodes));
+    }
+
     LiveGraph buildGraphFromCdo(LiveCdo cdo) {
         argumentIsNotNull(cdo);
 

@@ -38,6 +38,12 @@ public class LiveGraphFactory {
         return new ObjectGraphBuilder(typeMapper, liveCdoFactory).buildGraph(wrappedHandle);
     }
 
+    public LiveGraph createShallowLiveGraph(Object handle) {
+        Object wrappedHandle = wrapTopLevelContainer(handle);
+
+        return new ObjectGraphBuilder(typeMapper, liveCdoFactory).buildShallowGraph(wrappedHandle);
+    }
+
     public Cdo createCdo(Object cdo){
         return liveCdoFactory.create(cdo, null);
     }

@@ -93,6 +93,11 @@ public class JaversCommitAdvice {
         javers.commit(author, domainObject, propsForCommit(domainObject));
     }
 
+    public void commitShallowObject(Object domainObject) {
+        String author = authorProvider.provide();
+        javers.commitShallow(author, domainObject, propsForCommit(domainObject));
+    }
+
     public void commitShallowDelete(Object domainObject) {
         String author = authorProvider.provide();
 

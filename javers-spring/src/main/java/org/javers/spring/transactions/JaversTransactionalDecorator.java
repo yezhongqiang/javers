@@ -64,7 +64,19 @@ public abstract class JaversTransactionalDecorator implements Javers {
 
     @Override
     @Transactional
+    public Commit commitShallow(String author, Object currentVersion) {
+        return delegate.commit(author, currentVersion);
+    }
+
+    @Override
+    @Transactional
     public Commit commit(String author, Object currentVersion, Map<String, String> commitProperties) {
+        return delegate.commit(author, currentVersion, commitProperties);
+    }
+
+    @Override
+    @Transactional
+    public Commit commitShallow(String author, Object currentVersion, Map<String, String> commitProperties) {
         return delegate.commit(author, currentVersion, commitProperties);
     }
 

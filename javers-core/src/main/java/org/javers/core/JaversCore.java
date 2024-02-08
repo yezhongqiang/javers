@@ -71,6 +71,11 @@ class JaversCore implements Javers {
         return commit(author, currentVersion, Collections.emptyMap());
     }
 
+    @Override
+    public Commit commitShallow(String author, Object currentVersion) {
+        return commitShallow(author, currentVersion, Collections.emptyMap());
+    }
+
     public CompletableFuture<Commit> commitAsync(String author, Object currentVersion, Executor executor) {
         return commitAsync(author, currentVersion, Collections.emptyMap(), executor);
     }
@@ -85,6 +90,25 @@ class JaversCore implements Javers {
         assertJaversTypeNotValueTypeOrPrimitiveType(currentVersion);
 
         Commit commit = commitFactory.create(author, commitProperties, currentVersion);
+        long stopCreate = System.currentTimeMillis();
+
+        persist(commit);
+        long stop = System.currentTimeMillis();
+
+        logger.info(commit.toString()+", done in "+ (stop-start)+ " ms (diff:{} ms, persist:{} ms)",(stopCreate-start), (stop-stopCreate));
+        return commit;
+    }
+
+    @Override
+    public Commit commitShallow(String author, Object currentVersion, Map<String, String> commitProperties) {
+        long start = System.currentTimeMillis();
+
+        argumentIsNotNull(author);
+        argumentIsNotNull(commitProperties);
+        argumentIsNotNull(currentVersion);
+        assertJaversTypeNotValueTypeOrPrimitiveType(currentVersion);
+
+        Commit commit = commitFactory.createShallow(author, commitProperties, currentVersion);
         long stopCreate = System.currentTimeMillis();
 
         persist(commit);
