@@ -51,6 +51,8 @@ class NodeReuser {
        return stubs.poll();
     }
 
+    int stubsCount() { return stubs.size(); }
+
     boolean hasMoreStubs(){
         return !stubs.isEmpty();
     }

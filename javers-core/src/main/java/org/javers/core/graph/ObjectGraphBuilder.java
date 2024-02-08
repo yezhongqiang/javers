@@ -58,9 +58,13 @@ class ObjectGraphBuilder {
         argumentIsNotNull(handle);
         LiveCdo cdo = cdoFactory.create(handle, null);
         LiveNode root = edgeBuilder.buildNodeStub(cdo);
-        LiveNode stub = nodeReuser.pollStub();
 
-        buildEdges(stub);
+        int len = nodeReuser.stubsCount();
+        for (int i = 0; i < len; i++){
+            LiveNode stub = nodeReuser.pollStub();
+            buildEdges(stub); //edgeBuilder should append new stubs to queue
+        }
+
         List<LiveNode> nodes = nodeReuser.nodes();
 
         enrichHashes(nodes);
