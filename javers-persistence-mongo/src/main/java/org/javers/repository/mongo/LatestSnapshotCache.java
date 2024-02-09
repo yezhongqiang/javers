@@ -2,7 +2,9 @@ package org.javers.repository.mongo;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import java.util.List;
 import java.util.Optional;
+import org.javers.core.graph.Cdo;
 import org.javers.core.metamodel.object.CdoSnapshot;
 import org.javers.core.metamodel.object.GlobalId;
 
@@ -39,6 +41,11 @@ class LatestSnapshotCache {
         Optional<CdoSnapshot> fromDb = source.apply(globalId);
         cache.put(globalId, fromDb);
         return fromDb;
+    }
+
+    boolean isInCache(GlobalId globalId) {
+        Optional<CdoSnapshot> fromCache = cache.getIfPresent(globalId);
+        return fromCache != null && fromCache.isPresent();
     }
 
     void put(CdoSnapshot cdoSnapshot) {

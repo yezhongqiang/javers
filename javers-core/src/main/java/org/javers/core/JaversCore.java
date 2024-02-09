@@ -13,6 +13,7 @@ import org.javers.core.diff.changetype.PropertyChange;
 import org.javers.core.json.JsonConverter;
 import org.javers.core.metamodel.annotation.TypeName;
 import org.javers.core.metamodel.object.CdoSnapshot;
+import org.javers.core.metamodel.object.GlobalId;
 import org.javers.core.metamodel.object.GlobalIdFactory;
 import org.javers.core.metamodel.property.Property;
 import org.javers.core.metamodel.type.*;
@@ -144,6 +145,29 @@ class JaversCore implements Javers {
         return commit;
     }
 
+    @Override
+    public List<Commit> commitShallowList(String author, List<Object> currentVersions,
+                                          Map<String, String> commitProperties) {
+        long start = System.currentTimeMillis();
+
+        argumentIsNotNull(author);
+        argumentIsNotNull(commitProperties);
+
+        argumentIsNotNull(currentVersions);
+
+        List<Commit> commits = currentVersions.stream()
+            .map(currentVersion -> commitFactory.createShallow(author, commitProperties, currentVersion))
+            .collect(Collectors.toList());
+        long stopCreate = System.currentTimeMillis();
+
+        persistList(commits);
+        long stop = System.currentTimeMillis();
+
+        logger.info(Arrays.toString(commits.toArray()) + ", done in " + (stop - start) +
+            " ms (diff:{} ms, persist:{} ms)", (stopCreate - start), (stop - stopCreate));
+        return commits;
+    }
+
     private void persistList(List<Commit> commits) {
         repository.persistList(commits);
     }
@@ -213,7 +237,6 @@ class JaversCore implements Javers {
         return commitShallowDeleteById(author, globalId, Collections.<String, String>emptyMap());
     }
 
-
     @Override
     public Commit commitShallowDeleteById(String author, GlobalIdDTO globalId, Map<String, String> properties) {
         argumentsAreNotNull(author, properties, globalId);
@@ -223,6 +246,41 @@ class JaversCore implements Javers {
         repository.persist(commit);
         logger.info(commit.toString());
         return commit;
+    }
+
+    @Override
+    public List<Commit> commitShallowDeleteList(String author, List<Object> deletedList) {
+        return commitShallowDeleteList(author, deletedList, Collections.<String, String>emptyMap());
+    }
+
+    @Override
+    public List<Commit> commitShallowDeleteList(String author, List<Object> deletedList,
+                                                Map<String, String> properties) {
+        argumentsAreNotNull(author, properties, deletedList);
+
+        List<Commit> commits = commitFactory.createTerminalList(author, properties, deletedList);
+
+        repository.persistList(commits);
+        logger.info(commits.toString());
+        return commits;
+    }
+
+    @Override
+    public List<Commit> commitShallowDeleteByIdList(String author, List<GlobalIdDTO> globalIdList) {
+        return commitShallowDeleteByIdList(author, globalIdList, Collections.<String, String>emptyMap());
+    }
+
+    @Override
+    public List<Commit> commitShallowDeleteByIdList(String author, List<GlobalIdDTO> globalIdList,
+                                                    Map<String, String> properties) {
+        argumentsAreNotNull(author, properties, globalIdList);
+
+        List<GlobalId> globalIds = globalIdList.stream().map(globalIdFactory::createFromDto).collect(Collectors.toList());
+        List<Commit> commits = commitFactory.createTerminalByGlobalIdList(author, properties, globalIds);
+
+        repository.persistList(commits);
+        logger.info(commits.toString());
+        return commits;
     }
 
     @Override

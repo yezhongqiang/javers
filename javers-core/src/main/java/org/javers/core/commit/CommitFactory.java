@@ -1,5 +1,6 @@
 package org.javers.core.commit;
 
+import java.util.stream.Collectors;
 import org.javers.common.collections.Lists;
 import org.javers.common.date.DateProvider;
 import org.javers.common.exception.JaversException;
@@ -62,6 +63,19 @@ public class CommitFactory {
         argumentsAreNotNull(author, properties, removed);
         Cdo removedCdo = liveGraphFactory.createCdo(removed);
         return createTerminalByGlobalId(author, properties, removedCdo.getGlobalId());
+    }
+
+    public List<Commit> createTerminalList(String author, Map<String, String> properties, List<Object> removedList){
+        argumentsAreNotNull(author, properties, removedList);
+        List<Cdo> removedCdoList = liveGraphFactory.createCdoList(removedList);
+        return createTerminalByGlobalIdList(author, properties, removedCdoList.stream().map(Cdo::getGlobalId).collect(
+            Collectors.toList()));
+    }
+
+    public List<Commit> createTerminalByGlobalIdList(String author, Map<String, String> properties, List<GlobalId> removedIdList){
+        javersRepository.getLatestList(removedIdList);
+        return removedIdList.stream().map(removedId -> createTerminalByGlobalId(author, properties, removedId)).collect(
+            Collectors.toList());
     }
 
     public Commit create(String author, Map<String, String> properties, Object currentVersion){

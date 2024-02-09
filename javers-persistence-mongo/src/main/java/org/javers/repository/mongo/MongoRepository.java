@@ -32,6 +32,13 @@ import org.javers.repository.mongo.model.MongoHeadId;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.mongodb.client.model.Accumulators.first;
+import static com.mongodb.client.model.Aggregates.group;
+import static com.mongodb.client.model.Aggregates.match;
+import static com.mongodb.client.model.Aggregates.replaceRoot;
+import static com.mongodb.client.model.Aggregates.sort;
+import static com.mongodb.client.model.Filters.in;
+import static com.mongodb.client.model.Sorts.descending;
 import static org.javers.common.collections.Lists.toImmutableList;
 import static org.javers.common.validation.Validate.conditionFulfilled;
 import static org.javers.repository.mongo.DocumentConverter.fromDocument;
@@ -115,11 +122,13 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
     public void persistList(List<Commit> commits) {
         persistSnapshotsOfCommits(commits, Optional.empty());
         persistHeadIdOfCommits(commits, Optional.empty());
+        persistDiffOfCommits(commits, Optional.empty());
     }
 
     public void persistList(List<Commit> commits, ClientSession clientSession) {
         persistSnapshotsOfCommits(commits, Optional.of(clientSession));
         persistHeadIdOfCommits(commits, Optional.of(clientSession));
+        persistDiffOfCommits(commits, Optional.of(clientSession));
     }
 
     void clean(){
@@ -349,6 +358,13 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
         }
     }
 
+    private void persistDiffOfCommits(List<Commit> commits, Optional<ClientSession> clientSession) {
+        MongoCollection<Document> collection = diffsCollection();
+        List<Document> documents = commits.stream().map(commit -> commit.getDiff().getChanges().groupByCommit().stream().map(this::writeToDBObject)
+            .collect(Collectors.toList())).flatMap(List::stream).collect(Collectors.toList());
+        transactionalInsertMany(collection, documents, clientSession);
+    }
+
     private Bson objectIdFiler(Document document) {
         return Filters.eq(OBJECT_ID, document.getObjectId("_id"));
     }
@@ -464,6 +480,25 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
         MongoCursor<Document> mongoLatest = getMongoSnapshotsCursor(idQuery, Optional.of(queryParams));
 
         return getOne(mongoLatest).map(d -> readFromDBObject(d));
+    }
+
+    @Override
+    public List<CdoSnapshot> getLatestList(List<GlobalId> globalIds) {
+        List<GlobalId> toQuery = globalIds.stream().filter(id -> !cache.isInCache(id)).collect(Collectors.toList());
+        if (toQuery.isEmpty()) return new ArrayList<>();
+        AggregateIterable<Document> cdoSnapshotDocuments = snapshotsCollection().aggregate(
+            Arrays.asList(
+            match(in(GLOBAL_ID_KEY, toQuery.stream().map(GlobalId::value).collect(Collectors.toList()))),
+            sort(descending("version")),
+            group("$"+GLOBAL_ID_KEY, first("recentComment", "$$ROOT")),
+                replaceRoot("$recentComment")));
+        List<CdoSnapshot> cdoSnapshots = new ArrayList<>(toQuery.size());
+        for (Document cdoSnapshotDocument : cdoSnapshotDocuments) {
+            CdoSnapshot cdoSnapshot = readFromDBObject(cdoSnapshotDocument);
+            cache.put(cdoSnapshot);
+            cdoSnapshots.add(cdoSnapshot);
+        }
+        return cdoSnapshots;
     }
 
     private List<CdoSnapshot> queryForSnapshots(Bson query, Optional<QueryParams> queryParams) {

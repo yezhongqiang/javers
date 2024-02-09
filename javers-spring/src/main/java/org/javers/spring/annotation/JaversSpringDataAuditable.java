@@ -18,6 +18,7 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE})
 public @interface JaversSpringDataAuditable {
   AuditMode value() default AuditMode.DEEP;
+  int batchSize() default 50;
   enum AuditMode {
      SHALLOW,
     DEEP

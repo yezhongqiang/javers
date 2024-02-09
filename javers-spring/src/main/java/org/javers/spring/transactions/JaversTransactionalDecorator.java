@@ -69,6 +69,12 @@ public abstract class JaversTransactionalDecorator implements Javers {
     }
 
     @Override
+    public List<Commit> commitShallowList(String author, List<Object> currentVersions,
+                                          Map<String, String> commitProperties) {
+        return delegate.commitShallowList(author, currentVersions, commitProperties);
+    }
+
+    @Override
     @Transactional
     public Commit commit(String author, Object currentVersion, Map<String, String> commitProperties) {
         return delegate.commit(author, currentVersion, commitProperties);
@@ -112,6 +118,28 @@ public abstract class JaversTransactionalDecorator implements Javers {
     @Transactional
     public Commit commitShallowDeleteById(String author, GlobalIdDTO globalId, Map<String, String> properties) {
         return delegate.commitShallowDeleteById(author, globalId, properties);
+    }
+
+    @Override
+    public List<Commit> commitShallowDeleteList(String author, List<Object> deletedList) {
+        return delegate.commitShallowDeleteList(author, deletedList);
+    }
+
+    @Override
+    public List<Commit> commitShallowDeleteList(String author, List<Object> deletedList,
+                                                Map<String, String> properties) {
+        return delegate.commitShallowDeleteList(author, deletedList, properties);
+    }
+
+    @Override
+    public List<Commit> commitShallowDeleteByIdList(String author, List<GlobalIdDTO> globalIdList) {
+        return delegate.commitShallowDeleteByIdList(author, globalIdList);
+    }
+
+    @Override
+    public List<Commit> commitShallowDeleteByIdList(String author, List<GlobalIdDTO> globalIdList,
+                                                    Map<String, String> properties) {
+        return delegate.commitShallowDeleteByIdList(author, globalIdList, properties);
     }
 
     @Override

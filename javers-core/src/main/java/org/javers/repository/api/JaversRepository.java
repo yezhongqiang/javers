@@ -73,6 +73,10 @@ public interface JaversRepository {
      */
     Optional<CdoSnapshot> getLatest(GlobalId globalId);
 
+    default List<CdoSnapshot> getLatestList(List<GlobalId> globalIds) {
+        throw new UnsupportedOperationException();
+    }
+
     default List<CdoSnapshot> getLatest(Collection<GlobalId> globalIds) {
         Validate.argumentsAreNotNull(globalIds);
 

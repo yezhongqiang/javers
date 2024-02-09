@@ -55,6 +55,11 @@ class TransactionalMongoRepository implements JaversRepository, ConfigurationAwa
     }
 
     @Override
+    public List<CdoSnapshot> getLatestList(List<GlobalId> globalIds) {
+        return delegate.getLatestList(globalIds);
+    }
+
+    @Override
     public List<CdoSnapshot> getLatest(Collection<GlobalId> globalIds) {
         return delegate.getLatest(globalIds);
     }

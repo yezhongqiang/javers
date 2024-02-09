@@ -1,5 +1,6 @@
 package org.javers.core.graph;
 
+import java.util.stream.Collectors;
 import org.javers.core.metamodel.type.TypeMapper;
 
 import java.lang.reflect.Array;
@@ -46,6 +47,10 @@ public class LiveGraphFactory {
 
     public Cdo createCdo(Object cdo){
         return liveCdoFactory.create(cdo, null);
+    }
+
+    public List<Cdo> createCdoList(List<Object> cdoList){
+        return cdoList.stream().map(cdo -> liveCdoFactory.create(cdo, null)).collect(Collectors.toList());
     }
 
     private Object wrapTopLevelContainer(Object handle){

@@ -92,6 +92,13 @@ public class JaversExtendedRepository implements JaversRepository {
     }
 
     @Override
+    public List<CdoSnapshot> getLatestList(List<GlobalId> globalIds) {
+        argumentIsNotNull(globalIds);
+
+        return delegate.getLatestList(globalIds);
+    }
+
+    @Override
     public List<CdoSnapshot> getLatest(Collection<GlobalId> globalIds) {
         argumentIsNotNull(globalIds);
 

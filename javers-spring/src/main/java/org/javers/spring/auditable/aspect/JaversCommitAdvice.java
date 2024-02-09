@@ -10,6 +10,7 @@ import org.javers.core.commit.Commit;
 import org.javers.core.metamodel.type.JaversType;
 import org.javers.core.metamodel.type.ManagedType;
 import org.javers.core.metamodel.type.PrimitiveOrValueType;
+import org.javers.repository.jql.GlobalIdDTO;
 import org.javers.spring.annotation.JaversAuditableDelete;
 import org.javers.spring.auditable.AspectUtil;
 import org.javers.spring.auditable.AuthorProvider;
@@ -110,8 +111,35 @@ public class JaversCommitAdvice {
         String author = authorProvider.provide();
 
         javers.commitShallowDeleteById(author, instanceId(domainObjectId, domainType), Maps.merge(
-                commitPropertiesProvider.provideForDeleteById(domainType, domainObjectId),
-                commitPropertiesProvider.provide()));
+            commitPropertiesProvider.provideForDeleteById(domainType, domainObjectId),
+            commitPropertiesProvider.provide()));
+    }
+
+    public void commitObjectList(List<Object> domainObjects) {
+        String author = authorProvider.provide();
+        javers.commitList(author, domainObjects, propsForCommit(domainObjects));
+    }
+
+    public void commitShallowObjectList(List<Object> domainObjects) {
+        String author = authorProvider.provide();
+        javers.commitShallowList(author, domainObjects, propsForCommit(domainObjects));
+    }
+
+    public void commitShallowDeleteList(List<Object> domainObjects) {
+        String author = authorProvider.provide();
+
+        javers.commitShallowDeleteList(author, domainObjects, Maps.merge(
+            commitPropertiesProvider.provideForDeletedObject(domainObjects),
+            commitPropertiesProvider.provide()));
+    }
+
+    public void commitShallowDeleteByIdList(List<Object> domainObjectIds, Class<?> domainType) {
+        String author = authorProvider.provide();
+
+        List<GlobalIdDTO> globalIdDTOs = domainObjectIds.stream().<GlobalIdDTO>map(domainObjectId -> instanceId(domainObjectId, domainType)).toList();
+        javers.commitShallowDeleteByIdList(author, globalIdDTOs, Maps.merge(
+            commitPropertiesProvider.provideForDeleteById(domainType, domainObjectIds),
+            commitPropertiesProvider.provide()));
     }
 
     Optional<CompletableFuture<Commit>> commitSaveMethodArgumentsAsync(JoinPoint pjp) {

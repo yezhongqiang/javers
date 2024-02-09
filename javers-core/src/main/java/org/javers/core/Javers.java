@@ -88,6 +88,9 @@ public interface Javers {
 
     List<Commit> commitList(String author, List<Object> currentVersions, Map<String, String> commitProperties);
 
+    List<Commit> commitShallowList(String author, List<Object> currentVersions,
+                                   Map<String, String> commitProperties);
+
     /**
      * Async version of {@link #commit(String, Object, Map)}
      * <br/><br/>
@@ -133,6 +136,16 @@ public interface Javers {
      * See {@link #commit(String, Object, Map)} for commitProperties description.
      */
     Commit commitShallowDeleteById(String author, GlobalIdDTO globalId, Map<String, String> commitProperties);
+
+    List<Commit> commitShallowDeleteList(String author, List<Object> deletedList);
+
+    List<Commit> commitShallowDeleteList(String author, List<Object> deletedList,
+                                   Map<String, String> properties);
+
+    List<Commit> commitShallowDeleteByIdList(String author, List<GlobalIdDTO> globalIdList);
+
+    List<Commit> commitShallowDeleteByIdList(String author, List<GlobalIdDTO> globalIdList,
+                                       Map<String, String> properties);
 
     /**
      * <h2>Deep compare</h2>

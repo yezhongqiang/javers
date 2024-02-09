@@ -1,6 +1,8 @@
 package org.javers.spring.auditable.aspect.springdata;
 
-import java.lang.annotation.Annotation;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import java.util.List;
 import org.aspectj.lang.JoinPoint;
 import org.javers.core.Javers;
 import org.javers.repository.jql.QueryBuilder;
@@ -37,6 +39,19 @@ public class AbstractSpringAuditableRepositoryAspect {
                 }));
     }
 
+    protected void onSaveList(JoinPoint pjp, Object returnedObject) {
+        getRepositoryInterface(pjp).ifPresent(i -> {
+          Iterable<Object> objects = AspectUtil.collectReturnedObjects(returnedObject);
+          JaversSpringDataAuditable javersSpringDataAuditable =
+              (JaversSpringDataAuditable) i.getAnnotation(JaversSpringDataAuditable.class);
+          if (javersSpringDataAuditable.value() == JaversSpringDataAuditable.AuditMode.SHALLOW) {
+            Iterables.partition(objects, javersSpringDataAuditable.batchSize()).forEach(javersCommitAdvice::commitShallowObjectList);
+          } else {
+            Iterables.partition(objects, javersSpringDataAuditable.batchSize()).forEach(javersCommitAdvice::commitObjectList);
+          }
+        });
+    }
+
     protected void onDelete(JoinPoint pjp) {
         getRepositoryInterface(pjp).ifPresent( i -> {
             RepositoryMetadata metadata = DefaultRepositoryMetadata.getMetadata(i);
@@ -45,6 +60,16 @@ public class AbstractSpringAuditableRepositoryAspect {
             }
         });
     }
+
+  protected void onDeleteList(JoinPoint pjp) {
+    getRepositoryInterface(pjp).ifPresent( i -> {
+      RepositoryMetadata metadata = DefaultRepositoryMetadata.getMetadata(i);
+      JaversSpringDataAuditable javersSpringDataAuditable =
+          (JaversSpringDataAuditable) i.getAnnotation(JaversSpringDataAuditable.class);
+      List<Object> objects = AspectUtil.collectArguments(pjp);
+      Lists.partition(objects, javersSpringDataAuditable.batchSize()).forEach(sublist -> handleDeleteList(metadata, sublist));
+    });
+  }
 
     private Optional<Class> getRepositoryInterface(JoinPoint pjp) {
         for (Class i : pjp.getTarget().getClass().getInterfaces()) {
@@ -71,6 +96,18 @@ public class AbstractSpringAuditableRepositoryAspect {
             } else {
                 throw new IllegalArgumentException("Domain object or object id expected");
             }
+    }
+
+    void handleDeleteList(RepositoryMetadata repositoryMetadata, List<Object> domainObjectOrIds) {
+          if (domainObjectOrIds.isEmpty()) return;
+          if (isIdClass(repositoryMetadata, domainObjectOrIds.get(0))) {
+              Class<?> domainType = repositoryMetadata.getDomainType();
+              javersCommitAdvice.commitShallowDeleteByIdList(domainObjectOrIds, domainType);
+          } else if (isDomainClass(repositoryMetadata, domainObjectOrIds.get(0))) {
+              javersCommitAdvice.commitShallowDeleteList(domainObjectOrIds);
+          } else {
+              throw new IllegalArgumentException("Domain object or object id expected");
+          }
     }
 
     private boolean isDomainClass(RepositoryMetadata metadata, Object o) {
