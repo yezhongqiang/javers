@@ -1,6 +1,7 @@
 package org.javers.spring.mongodb;
 
 import org.javers.core.Javers;
+import org.javers.core.commit.Commit;
 import org.javers.spring.transactions.JaversTransactionalDecorator;
 
 /**

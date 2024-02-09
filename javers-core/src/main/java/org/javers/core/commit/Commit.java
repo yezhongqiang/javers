@@ -62,7 +62,7 @@ public final class Commit {
         return commitMetadata.getProperties();
     }
 
-    Diff getDiff() {
+    public Diff getDiff() {
         return diff;
     }
 

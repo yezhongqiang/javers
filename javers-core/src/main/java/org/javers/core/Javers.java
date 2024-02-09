@@ -70,6 +70,11 @@ public interface Javers {
 
     List<Commit> commitList(String author, List<Object> currentVersions);
 
+    Commit commitShallow(String author, Object currentVersion);
+
+    Commit commitShallow(String author, Object currentVersion, Map<String, String> commitProperties);
+
+
     /**
      * Async version of {@link #commit(String, Object)}
      * <br/><br/>

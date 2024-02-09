@@ -1,5 +1,7 @@
 package org.javers.repository.mongo;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.mongodb.client.*;
 import com.google.gson.JsonObject;
 import com.mongodb.BasicDBObject;
@@ -8,10 +10,15 @@ import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.javers.common.string.RegexEscape;
 import org.javers.common.validation.Validate;
+import org.javers.core.ChangesByCommit;
+import org.javers.core.ChangesByObject;
 import org.javers.core.CommitIdGenerator;
 import org.javers.core.CoreConfiguration;
 import org.javers.core.commit.Commit;
 import org.javers.core.commit.CommitId;
+import org.javers.core.commit.CommitMetadata;
+import org.javers.core.diff.Change;
+import org.javers.core.diff.Diff;
 import org.javers.core.json.JsonConverter;
 import org.javers.core.json.typeadapter.util.UtilTypeCoreAdapters;
 import org.javers.core.metamodel.object.CdoSnapshot;
@@ -95,11 +102,13 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
     public void persist(Commit commit) {
         persistSnapshots(commit, Optional.empty());
         persistHeadId(commit, Optional.empty());
+        persistDiff(commit, Optional.empty());
     }
 
     public void persist(Commit commit, ClientSession clientSession) {
         persistSnapshots(commit, Optional.of(clientSession));
         persistHeadId(commit, Optional.of(clientSession));
+        persistDiff(commit, Optional.of(clientSession));
     }
 
     @Override
@@ -243,8 +252,34 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
         return dbObject;
     }
 
+    private Document writeToDBObject(ChangesByCommit change){
+        conditionFulfilled(jsonConverter != null, "MongoRepository: jsonConverter is null");
+        JsonObject jsonObject = (JsonObject)jsonConverter.toJsonElement(change);
+        JsonElement groupByObject = jsonConverter.toJsonElement(change.groupByObject());
+        jsonObject.remove("changes");
+        jsonObject.add("objects", groupByObject);
+
+        for (JsonElement objectJsonElement : groupByObject.getAsJsonArray()) {
+            int i = 0;
+            for (JsonElement jsonElement : ((JsonObject)objectJsonElement).getAsJsonArray("changes")) {
+                if (i == 0) {
+                    ((JsonObject)objectJsonElement).add("globalId", ((JsonObject)jsonElement).get("globalId"));
+                }
+                i = 1;
+                ((JsonObject)jsonElement).remove("commitMetadata");
+                ((JsonObject)jsonElement).remove("globalId");
+            }
+        }
+
+        return toDocument(jsonObject);
+    }
+
     private MongoCollection<Document> snapshotsCollection() {
         return mongoSchemaManager.snapshotsCollection();
+    }
+
+    private MongoCollection<Document> diffsCollection() {
+        return mongoSchemaManager.diffsCollection();
     }
 
     private MongoCollection<Document> headCollection() {
@@ -253,11 +288,18 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
 
     private void persistSnapshots(Commit commit, Optional<ClientSession> clientSession) {
         MongoCollection<Document> collection = snapshotsCollection();
-        commit.getSnapshots().forEach(snapshot -> {
-            transactionalInsert(collection, writeToDBObject(snapshot), clientSession);
-            //TODO should be evicted on transaction rollback
+        List<Document> documents = commit.getSnapshots().stream().<Document>map(snapshot -> {
             cache.put(snapshot);
-        });
+            return writeToDBObject(snapshot);
+        }).collect(Collectors.toList());
+        transactionalInsertMany(collection, documents, clientSession);
+    }
+
+    private void persistDiff(Commit commit, Optional<ClientSession> clientSession) {
+        MongoCollection<Document> collection = diffsCollection();
+        List<Document> documents = commit.getDiff().getChanges().groupByCommit().stream().map(this::writeToDBObject)
+                        .collect(Collectors.toList());
+        transactionalInsertMany(collection, documents, clientSession);
     }
 
     private void persistHeadId(Commit commit, Optional<ClientSession> clientSession) {
@@ -458,6 +500,14 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
             Optional<ClientSession> clientSession) {
         clientSession.map(s-> collection.insertOne(s, document))
                 .orElseGet(() -> collection.insertOne(document));
+    }
+
+    private void transactionalInsertMany(
+            MongoCollection<Document> collection,
+            List<Document> documents,
+            Optional<ClientSession> clientSession) {
+        clientSession.map(s-> collection.insertMany(s, documents))
+                .orElseGet(() -> collection.insertMany(documents));
     }
 
     private void transactionalUpdate(

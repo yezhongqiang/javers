@@ -70,6 +70,12 @@ public class CommitFactory {
         return createCommit(author, properties, currentGraph);
     }
 
+    public Commit createShallow(String author, Map<String, String> properties, Object currentVersion){
+        argumentsAreNotNull(author, currentVersion);
+        LiveGraph currentGraph = createShallowLiveGraph(currentVersion);
+        return createCommit(author, properties, currentGraph);
+    }
+
     private Commit createCommit(String author, Map<String, String> properties, LiveGraph currentGraph){
         CommitMetadata commitMetadata = newCommitMetadata(author, properties);
         ObjectGraph<CdoSnapshot> latestSnapshotGraph = snapshotGraphFactory.createLatest(currentGraph.globalIds());
@@ -82,6 +88,11 @@ public class CommitFactory {
     private LiveGraph createLiveGraph(Object currentVersion){
         argumentsAreNotNull(currentVersion);
         return liveGraphFactory.createLiveGraph(currentVersion);
+    }
+
+    private LiveGraph createShallowLiveGraph(Object currentVersion){
+        argumentsAreNotNull(currentVersion);
+        return liveGraphFactory.createShallowLiveGraph(currentVersion);
     }
 
     private CommitMetadata newCommitMetadata(String author, Map<String, String> properties){
