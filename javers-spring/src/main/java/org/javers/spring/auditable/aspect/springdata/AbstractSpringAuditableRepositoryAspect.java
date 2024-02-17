@@ -27,30 +27,26 @@ public class AbstractSpringAuditableRepositoryAspect {
     }
 
     protected void onSave(JoinPoint pjp, Object returnedObject) {
-        getRepositoryInterface(pjp).ifPresent(i ->
-                AspectUtil.collectReturnedObjects(returnedObject).forEach(object -> {
-                    JaversSpringDataAuditable javersSpringDataAuditable =
-                        (JaversSpringDataAuditable) i.getAnnotation(JaversSpringDataAuditable.class);
-                    if (javersSpringDataAuditable.value() == JaversSpringDataAuditable.AuditMode.SHALLOW) {
-                        javersCommitAdvice.commitShallowObject(object);
-                    } else {
-                        javersCommitAdvice.commitObject(object);
-                    }
-                }));
-    }
-
-    protected void onSaveList(JoinPoint pjp, Object returnedObject) {
         getRepositoryInterface(pjp).ifPresent(i -> {
-          Iterable<Object> objects = AspectUtil.collectReturnedObjects(returnedObject);
-          JaversSpringDataAuditable javersSpringDataAuditable =
-              (JaversSpringDataAuditable) i.getAnnotation(JaversSpringDataAuditable.class);
-          if (javersSpringDataAuditable.value() == JaversSpringDataAuditable.AuditMode.SHALLOW) {
-            Iterables.partition(objects, javersSpringDataAuditable.batchSize()).forEach(javersCommitAdvice::commitShallowObjectList);
-          } else {
-            Iterables.partition(objects, javersSpringDataAuditable.batchSize()).forEach(javersCommitAdvice::commitObjectList);
-          }
+              JaversSpringDataAuditable javersSpringDataAuditable =
+                  (JaversSpringDataAuditable) i.getAnnotation(JaversSpringDataAuditable.class);
+              if (returnedObject instanceof Iterable) {
+                  List<Object> objects = (List)returnedObject;
+                  if (javersSpringDataAuditable.value() == JaversSpringDataAuditable.AuditMode.SHALLOW) {
+                    javersCommitAdvice.commitShallowObjectList(objects);
+                  } else {
+                    javersCommitAdvice.commitObjectList(objects);
+                  }
+              } else {
+                  if (javersSpringDataAuditable.value() == JaversSpringDataAuditable.AuditMode.SHALLOW) {
+                      javersCommitAdvice.commitShallowObject(returnedObject);
+                  } else {
+                      javersCommitAdvice.commitObject(returnedObject);
+                  }
+              }
         });
     }
+
 
     protected void onDelete(JoinPoint pjp) {
         getRepositoryInterface(pjp).ifPresent( i -> {
@@ -67,7 +63,7 @@ public class AbstractSpringAuditableRepositoryAspect {
       JaversSpringDataAuditable javersSpringDataAuditable =
           (JaversSpringDataAuditable) i.getAnnotation(JaversSpringDataAuditable.class);
       List<Object> objects = AspectUtil.collectArguments(pjp);
-      Lists.partition(objects, javersSpringDataAuditable.batchSize()).forEach(sublist -> handleDeleteList(metadata, sublist));
+      handleDeleteList(metadata, objects);
     });
   }
 

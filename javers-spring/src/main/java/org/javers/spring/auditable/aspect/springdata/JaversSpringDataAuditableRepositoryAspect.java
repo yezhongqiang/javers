@@ -49,8 +49,13 @@ public class JaversSpringDataAuditableRepositoryAspect extends AbstractSpringAud
         onSave(pjp, responseEntity);
     }
 
+    @AfterReturning(value = "execution(public * insert(..)) && this(org.springframework.data.mongodb.repository.MongoRepository)", returning = "responseEntity")
+    public void onInsertExecuted(JoinPoint pjp, Object responseEntity) {
+        onSave(pjp, responseEntity);
+    }
+
     @AfterReturning(value = "execution(public * saveAll(..)) && this(org.springframework.data.repository.CrudRepository)", returning = "responseEntity")
     public void onSaveAllExecuted(JoinPoint pjp, Object responseEntity) {
-        onSaveList(pjp, responseEntity);
+        onSave(pjp, responseEntity);
     }
 }
