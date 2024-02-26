@@ -70,11 +70,6 @@ public interface Javers {
 
     List<Commit> commitList(String author, List<Object> currentVersions);
 
-    Commit commitShallow(String author, Object currentVersion);
-
-    Commit commitShallow(String author, Object currentVersion, Map<String, String> commitProperties);
-
-
     /**
      * Async version of {@link #commit(String, Object)}
      * <br/><br/>
@@ -87,9 +82,6 @@ public interface Javers {
     CompletableFuture<Commit> commitAsync(String author, Object currentVersion, Executor executor);
 
     List<Commit> commitList(String author, List<Object> currentVersions, Map<String, String> commitProperties);
-
-    List<Commit> commitShallowList(String author, List<Object> currentVersions,
-                                   Map<String, String> commitProperties);
 
     /**
      * Async version of {@link #commit(String, Object, Map)}
@@ -486,6 +478,8 @@ public interface Javers {
      * @see <a href="http://javers.org/documentation/jql-examples/">http://javers.org/documentation/jql-examples</a>
      */
     Changes findChanges(JqlQuery query);
+
+    List<ObjectChange> findChangesFromDB(JqlQuery query);
 
     /**
      * Queries JaversRepository for object Snapshots. <br/>

@@ -92,7 +92,7 @@ public class JqlQuery {
         return getFilter(ofType).isPresent();
     }
 
-    Set<ManagedType> getClassFilter(){
+    public Set<ManagedType> getClassFilter(){
         return getFilter(ClassFilter.class).get().getManagedTypes();
     }
 

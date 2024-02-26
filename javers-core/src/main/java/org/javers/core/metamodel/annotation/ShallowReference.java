@@ -47,4 +47,5 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Target({TYPE, METHOD, FIELD})
 @Retention(RUNTIME)
 public @interface ShallowReference {
+  boolean shadow() default false;
 }

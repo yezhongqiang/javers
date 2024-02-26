@@ -2,6 +2,7 @@ package org.javers.repository.jql;
 
 import org.javers.common.exception.JaversException;
 import org.javers.common.exception.JaversExceptionCode;
+import org.javers.core.ObjectChange;
 import org.javers.core.diff.Change;
 import org.javers.core.metamodel.object.CdoSnapshot;
 import org.javers.shadow.Shadow;
@@ -44,6 +45,11 @@ public class QueryRunner {
     public List<Change> queryForChanges(JqlQuery query) {
         validateSnapshotQueryLimit(query, "findChanges()");
         return changesQueryRunner.queryForChanges(query);
+    }
+
+    public List<ObjectChange> queryForChangesFromDB(JqlQuery query) {
+        validateSnapshotQueryLimit(query, "findChangesFromDB()");
+        return changesQueryRunner.queryForChangesFromDB(query);
     }
 
     private void validateSnapshotQueryLimit(JqlQuery query, String method) {

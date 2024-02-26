@@ -1,10 +1,6 @@
 package org.javers.spring.mongodb;
 
-import java.util.List;
-import java.util.Map;
 import org.javers.core.Javers;
-import org.javers.core.commit.Commit;
-import org.javers.repository.jql.GlobalIdDTO;
 import org.javers.spring.transactions.JaversTransactionalDecorator;
 
 /**

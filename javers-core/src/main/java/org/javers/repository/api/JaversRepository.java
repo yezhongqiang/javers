@@ -1,9 +1,9 @@
 package org.javers.repository.api;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.javers.common.validation.Validate;
+import org.javers.core.ObjectChange;
 import org.javers.core.commit.Commit;
 import org.javers.core.commit.CommitId;
 import org.javers.core.commit.CommitMetadata;
@@ -42,6 +42,12 @@ import java.util.stream.Collectors;
  * @author bartosz walacik
  */
 public interface JaversRepository {
+
+    default List<ObjectChange> getChangeHistoryFromDB(GlobalId globalId, QueryParams queryParams) {throw new UnsupportedOperationException();}
+
+    default List<ObjectChange> getChangeHistoryFromDB(Set<ManagedType> givenClasses, QueryParams queryParams) {throw new UnsupportedOperationException();}
+
+    default List<ObjectChange> getChangesFromDB(QueryParams queryParams) {throw new UnsupportedOperationException();}
 
     /**
      * Snapshots (historical states) of given object

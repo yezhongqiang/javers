@@ -2,13 +2,11 @@ package org.javers.repository.jql;
 
 import org.javers.common.exception.JaversException;
 import org.javers.common.exception.JaversExceptionCode;
+import org.javers.core.ObjectChange;
 import org.javers.core.diff.Change;
 import org.javers.repository.api.JaversExtendedRepository;
 
 import java.util.List;
-
-import static java.util.Spliterator.IMMUTABLE;
-import static java.util.Spliterator.ORDERED;
 
 class ChangesQueryRunner {
     private final QueryCompiler queryCompiler;
@@ -39,6 +37,30 @@ class ChangesQueryRunner {
             return repository.getValueObjectChangeHistory(
                     filter.getOwnerEntity(), filter.getPath(), query.getQueryParams());
         }
+
+        throw new JaversException(JaversExceptionCode.MALFORMED_JQL, "queryForChanges: " + query + " is not supported");
+    }
+
+    List<ObjectChange> queryForChangesFromDB(JqlQuery query) {
+        queryCompiler.compile(query);
+
+        if (query.isAnyDomainObjectQuery()) {
+            return repository.getChangesFromDB(query.getQueryParams());
+        }
+
+        if (query.isIdQuery()){
+            return repository.getChangeHistoryFromDB(query.getIdFilter(), query.getQueryParams());
+        }
+
+        if (query.isClassQuery()){
+            return repository.getChangeHistoryFromDB(query.getClassFilter(), query.getQueryParams());
+        }
+
+        /*if (query.isVoOwnerQuery()) {
+            VoOwnerFilter filter = query.getVoOwnerFilter();
+            return repository.getValueObjectChangeHistory(
+                filter.getOwnerEntity(), filter.getPath(), query.getQueryParams());
+        }*/
 
         throw new JaversException(JaversExceptionCode.MALFORMED_JQL, "queryForChanges: " + query + " is not supported");
     }

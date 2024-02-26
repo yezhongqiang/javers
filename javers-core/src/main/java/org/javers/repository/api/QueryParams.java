@@ -37,8 +37,11 @@ public class QueryParams {
     private final SnapshotType snapshotType;
     private final boolean loadCommitProps;
     private final Integer snapshotQueryLimit;
+    private final String searchText;
+    private final boolean isRegex;
 
-    QueryParams(int limit, int skip, LocalDateTime from, Instant fromInstant, LocalDateTime to, Instant toInstant, Set<CommitId> commitIds, Long version, String author, String authorLikeIgnoreCase, Map<String, Collection<String>> commitProperties, Map<String,String> commitPropertiesLike, boolean aggregate, Set<String> changedProperties, CommitId toCommitId, SnapshotType snapshotType, boolean loadCommitProps, Integer snapshotQueryLimit) {
+    QueryParams(int limit, int skip, LocalDateTime from, Instant fromInstant, LocalDateTime to, Instant toInstant, Set<CommitId> commitIds, Long version, String author, String authorLikeIgnoreCase, Map<String, Collection<String>> commitProperties, Map<String,String> commitPropertiesLike, boolean aggregate, Set<String> changedProperties, CommitId toCommitId, SnapshotType snapshotType, boolean loadCommitProps, Integer snapshotQueryLimit, String searchText,
+                boolean isRegex) {
         this.snapshotQueryLimit = snapshotQueryLimit;
         this.limit = limit;
         this.skip = skip;
@@ -57,6 +60,8 @@ public class QueryParams {
         this.toCommitId = toCommitId;
         this.snapshotType = snapshotType;
         this.loadCommitProps = loadCommitProps;
+        this.searchText = searchText;
+        this.isRegex = isRegex;
     }
 
     public QueryParams changeAggregate(boolean newAggregate) {
@@ -82,6 +87,8 @@ public class QueryParams {
     public int skip() {
         return skip;
     }
+
+    public Optional<String> searchText() { return Optional.ofNullable(searchText); }
 
     public boolean hasSnapshotQueryLimit() {
         return snapshotQueryLimit != null;
@@ -212,5 +219,9 @@ public class QueryParams {
                 "limit", limit,
                 "skip", skip,
                 "snapshotQueryLimit", snapshotQueryLimit);
+    }
+
+    public boolean isRegex() {
+        return isRegex;
     }
 }

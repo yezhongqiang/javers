@@ -1,11 +1,11 @@
 package org.javers.core.metamodel.property;
 
-import java.lang.reflect.Field;
 import org.javers.common.exception.JaversException;
 import org.javers.common.exception.JaversExceptionCode;
 import org.javers.common.reflection.JaversMember;
 import java.lang.reflect.Type;
 import java.util.Optional;
+import org.javers.core.metamodel.annotation.ShallowReference;
 
 import static org.javers.common.validation.Validate.argumentIsNotNull;
 
@@ -126,6 +126,15 @@ public class Property {
 
     public boolean hasShallowReferenceAnn() {
         return hasShallowReferenceAnn;
+    }
+
+    public boolean isShadowOfShallowReference() {
+        if (hasShallowReferenceAnn) {
+            ShallowReference shallowReference =
+                (ShallowReference) member.getAnnotations().stream().filter(ann -> ann instanceof ShallowReference).findFirst().get();
+            return shallowReference.shadow();
+        }
+        return false;
     }
 
     @Override

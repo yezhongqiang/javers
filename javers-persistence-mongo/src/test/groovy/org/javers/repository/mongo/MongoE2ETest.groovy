@@ -2,10 +2,15 @@ package org.javers.repository.mongo
 
 import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoDatabase
+import com.mongodb.MongoClientSettings
+import org.bson.codecs.configuration.CodecRegistry
 import org.testcontainers.spock.Testcontainers
 import spock.lang.Shared
+import org.bson.codecs.pojo.PojoCodecProvider;
 
 import static org.javers.core.model.DummyUser.dummyUser
+import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
+import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 
 /**
  * @author bartosz walacik
@@ -21,7 +26,11 @@ class MongoE2ETest extends JaversMongoRepositoryE2ETest {
 
   @Override
   protected MongoDatabase getMongoDb() {
-    mongoClient.getDatabase("test")
+    CodecRegistry pojoCodecRegistry = fromRegistries(MongoClientSettings.getDefaultCodecRegistry(),
+            fromProviders(PojoCodecProvider.builder().automatic(true).build()));
+    MongoDatabase database = mongoClient.getDatabase("test")
+    database.withCodecRegistry(pojoCodecRegistry);
+    database
   }
 
   def "should persist head id"() {

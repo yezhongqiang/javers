@@ -16,10 +16,4 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE})
-public @interface JaversSpringDataAuditable {
-  AuditMode value() default AuditMode.DEEP;
-  enum AuditMode {
-     SHALLOW,
-    DEEP
-  }
-}
+public @interface JaversSpringDataAuditable {}

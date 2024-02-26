@@ -208,4 +208,9 @@ class DummyUser extends AbstractDummyUser {
         this.intArray = ints as int[]
         this
     }
+
+    DummyUser withSurname(String surname) {
+        this.surname = surname
+        this
+    }
 }

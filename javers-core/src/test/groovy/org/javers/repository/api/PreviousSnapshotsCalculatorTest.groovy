@@ -23,13 +23,13 @@ class PreviousSnapshotsCalculatorTest extends Specification {
 
         def snapshotProviderStub = { identifiers ->
             identifiers.collect {
-                if (it.globalId.cdoId == 1) return snapshotsA[(int) it.version]
-                else return snapshotsB[(int) it.version]
+                if (it.globalId.cdoId == 1) return snapshotsA[(int) it.getVersion()]
+                else return snapshotsB[(int) it.getVersion()]
             }
         }
 
         CdoSnapshot.metaClass.eq = {
-            it.globalId == delegate.globalId && it.version == delegate.version
+            it.globalId == delegate.globalId && it.getVersion() == delegate.version
         }
 
         def calculator = new PreviousSnapshotsCalculator(snapshotProviderStub)

@@ -2,6 +2,7 @@ package org.javers.spring.mongodb;
 
 import com.mongodb.client.ClientSession;
 import org.javers.core.CoreConfiguration;
+import org.javers.core.ObjectChange;
 import org.javers.core.commit.Commit;
 import org.javers.core.commit.CommitId;
 import org.javers.core.json.JsonConverter;
@@ -72,6 +73,18 @@ class TransactionalMongoRepository implements JaversRepository, ConfigurationAwa
     @Override
     public List<CdoSnapshot> getSnapshots(Collection<SnapshotIdentifier> snapshotIdentifiers) {
         return delegate.getSnapshots(snapshotIdentifiers);
+    }
+
+    public List<ObjectChange> getChangeHistoryFromDB(GlobalId globalId, QueryParams queryParams) {
+        return delegate.getChangeHistoryFromDB(globalId, queryParams);
+    }
+
+    public List<ObjectChange> getChangeHistoryFromDB(Set<ManagedType> givenClasses, QueryParams queryParams) {
+        return delegate.getChangeHistoryFromDB(givenClasses, queryParams);
+    }
+
+    public List<ObjectChange> getChangesFromDB(QueryParams queryParams) {
+        return delegate.getChangesFromDB(queryParams);
     }
 
     @Override

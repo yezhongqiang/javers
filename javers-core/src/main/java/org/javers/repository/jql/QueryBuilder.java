@@ -8,6 +8,7 @@ import org.javers.core.commit.CommitId;
 import org.javers.core.commit.CommitMetadata;
 import org.javers.core.metamodel.object.CdoSnapshot;
 import org.javers.core.metamodel.object.SnapshotType;
+import org.javers.repository.api.QueryParams;
 import org.javers.repository.api.QueryParamsBuilder;
 import org.javers.repository.jql.FilterDefinition.*;
 
@@ -616,6 +617,18 @@ public class QueryBuilder {
     public QueryBuilder byAuthor(String author) {
         Validate.argumentIsNotNull(author);
         queryParamsBuilder.author(author);
+        return this;
+    }
+
+    public QueryBuilder withSearchText(String searchText) {
+        Validate.argumentIsNotNull(searchText);
+        queryParamsBuilder.withSearchText(searchText);
+        return this;
+    }
+
+    public QueryBuilder withRegex(Boolean isRegex) {
+        Validate.argumentIsNotNull(isRegex);
+        queryParamsBuilder.withRegex(isRegex);
         return this;
     }
 

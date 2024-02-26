@@ -36,6 +36,8 @@ public class MongoSchemaManager {
     static final String SNAPSHOT_TYPE = "type";
 
     private static final Logger logger = LoggerFactory.getLogger(MongoSchemaManager.class);
+    public static final String TEXT = "text";
+    public static final String RIGHT_IN_STRING = "changedProperties.rightAsString";
 
     private final MongoDatabase mongo;
     private final String snapshotCollectionName;
@@ -67,6 +69,11 @@ public class MongoSchemaManager {
         }
 
         headCollection();
+
+        MongoCollection<Document> diffs = diffsCollection();
+        diffs.createIndex(new BasicDBObject(GLOBAL_ID_KEY, ASC));
+        diffs.createIndex(new BasicDBObject(GLOBAL_ID_ENTITY, ASC));
+        diffs.createIndex(new BasicDBObject(RIGHT_IN_STRING, TEXT), new IndexOptions().name("fullTextSearchIndex"));
 
         //schema migration script from JaVers 1.1 to 1.2
         Document doc = snapshots.find().first();

@@ -6,6 +6,7 @@ import org.javers.common.validation.Validate;
 import org.javers.core.Changes;
 import org.javers.core.CoreConfiguration;
 import org.javers.core.Javers;
+import org.javers.core.ObjectChange;
 import org.javers.core.changelog.ChangeProcessor;
 import org.javers.core.commit.Commit;
 import org.javers.core.diff.Change;
@@ -57,21 +58,15 @@ public abstract class JaversTransactionalDecorator implements Javers {
     }
 
     @Override
+    public List<ObjectChange> findChangesFromDB(JqlQuery query) {
+        throw new JaversException(JaversExceptionCode.NOT_IMPLEMENTED,
+            "javers.findChangesFromDB() is not available for SQL");
+    }
+
+    @Override
     @Transactional
     public Commit commit(String author, Object currentVersion) {
         return delegate.commit(author, currentVersion);
-    }
-
-    @Override
-    @Transactional
-    public Commit commitShallow(String author, Object currentVersion) {
-        return delegate.commit(author, currentVersion);
-    }
-
-    @Override
-    public List<Commit> commitShallowList(String author, List<Object> currentVersions,
-                                          Map<String, String> commitProperties) {
-        return delegate.commitShallowList(author, currentVersions, commitProperties);
     }
 
     @Override
@@ -90,10 +85,6 @@ public abstract class JaversTransactionalDecorator implements Javers {
     @Transactional
     public List<Commit> commitList(String author, List<Object> currentVersions, Map<String, String> commitProperties) {
         return delegate.commitList(author, currentVersions, commitProperties);
-    }
-
-    public Commit commitShallow(String author, Object currentVersion, Map<String, String> commitProperties) {
-        return delegate.commit(author, currentVersion, commitProperties);
     }
 
     @Override

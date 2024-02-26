@@ -160,7 +160,7 @@ class ShadowGraphBuilder {
             return builtNodes.get(globalId);
         }
 
-        if (property.isShallowReference()) {
+        if (property.isShallowReference() && !property.isShadowOfShallowReference()) {
             EntityType shallowReferenceType = property.getType() instanceof EntityType
                     ? property.getType()
                     : (EntityType)typeMapper.getJaversManagedType(globalId);

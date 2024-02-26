@@ -1,6 +1,5 @@
 package org.javers.repository.mongo;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.mongodb.client.*;
 import com.google.gson.JsonObject;
@@ -10,14 +9,11 @@ import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.javers.common.string.RegexEscape;
 import org.javers.common.validation.Validate;
-import org.javers.core.ChangesByCommit;
-import org.javers.core.ChangesByObject;
+import org.javers.core.ObjectChange;
 import org.javers.core.CommitIdGenerator;
 import org.javers.core.CoreConfiguration;
 import org.javers.core.commit.Commit;
 import org.javers.core.commit.CommitId;
-import org.javers.core.commit.CommitMetadata;
-import org.javers.core.diff.Change;
 import org.javers.core.diff.Diff;
 import org.javers.core.json.JsonConverter;
 import org.javers.core.json.typeadapter.util.UtilTypeCoreAdapters;
@@ -134,6 +130,63 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
     void clean(){
         snapshotsCollection().deleteMany(new Document());
         headCollection().deleteMany(new Document());
+    }
+
+    @Override
+    public List<ObjectChange> getChangeHistoryFromDB(GlobalId globalId, QueryParams queryParams) {
+        MongoCollection<Document> documentMongoCollection = diffsCollection();
+        Bson query = new BasicDBObject(GLOBAL_ID_KEY, globalId.value());
+
+        return queryForObjectChanges(queryParams, documentMongoCollection, query);
+    }
+
+    private List<ObjectChange> queryForObjectChanges(QueryParams queryParams,
+                                                     MongoCollection<Document> documentMongoCollection,
+                                                     Bson query) {
+
+        query = applyQueryParams(query, Optional.of(queryParams));
+        if (queryParams.searchText().isPresent()) {
+            if (queryParams.isRegex()) {
+                query = Filters.and(query, Filters.regex(MongoSchemaManager.RIGHT_IN_STRING, queryParams.searchText().get()));
+            } else {
+                query = Filters.and(query, Filters.text(queryParams.searchText().get()));
+            }
+        }
+
+        FindIterable<Document> findIterable = documentMongoCollection.find(query);
+
+        if (coreConfiguration.getCommitIdGenerator() == CommitIdGenerator.SYNCHRONIZED_SEQUENCE) {
+            findIterable.sort(new Document(COMMIT_ID, DESC));
+        }
+        else {
+            findIterable.sort(new Document(COMMIT_DATE_INSTANT, DESC));
+        }
+        applyQueryParams(findIterable, Optional.of(queryParams));
+
+        List<ObjectChange> objectChanges = new ArrayList<>();
+        findIterable.forEach(document -> {
+            JsonElement jsonElement = fromDocument(document);
+            System.out.println(jsonElement);
+            ObjectChange objectChange = jsonConverter.fromJson(jsonElement, ObjectChange.class);
+            objectChanges.add(objectChange);
+        });
+
+        return objectChanges;
+    }
+
+    @Override
+    public List<ObjectChange> getChangeHistoryFromDB(Set<ManagedType> givenClasses,
+                                                     QueryParams queryParams) {
+        MongoCollection<Document> documentMongoCollection = diffsCollection();
+        Bson query = createManagedTypeQuery(givenClasses, queryParams.isAggregate());
+        return queryForObjectChanges(queryParams, documentMongoCollection, query);
+    }
+
+    @Override
+    public List<ObjectChange> getChangesFromDB(QueryParams queryParams) {
+        MongoCollection<Document> documentMongoCollection = diffsCollection();
+        Bson query = new BasicDBObject();
+        return queryForObjectChanges(queryParams, documentMongoCollection, query);
     }
 
     @Override
@@ -261,26 +314,18 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
         return dbObject;
     }
 
-    private Document writeToDBObject(ChangesByCommit change){
-        conditionFulfilled(jsonConverter != null, "MongoRepository: jsonConverter is null");
-        JsonObject jsonObject = (JsonObject)jsonConverter.toJsonElement(change);
-        JsonElement groupByObject = jsonConverter.toJsonElement(change.groupByObject());
-        jsonObject.remove("changes");
-        jsonObject.add("objects", groupByObject);
-
-        for (JsonElement objectJsonElement : groupByObject.getAsJsonArray()) {
-            int i = 0;
-            for (JsonElement jsonElement : ((JsonObject)objectJsonElement).getAsJsonArray("changes")) {
-                if (i == 0) {
-                    ((JsonObject)objectJsonElement).add("globalId", ((JsonObject)jsonElement).get("globalId"));
-                }
-                i = 1;
-                ((JsonObject)jsonElement).remove("commitMetadata");
-                ((JsonObject)jsonElement).remove("globalId");
-            }
-        }
-
-        return toDocument(jsonObject);
+    private Document writeDiffToDBObject(Commit commit){
+        Diff diff = commit.getDiff();
+        if (diff.getChanges().isEmpty()) return null;
+        if (commit.getSnapshots().isEmpty()) return null;
+        CdoSnapshot cdoSnapshot = commit.getSnapshots().stream().filter(cdo->!cdo.getGlobalId().value().contains("#")).findFirst().orElse(null);
+        if (cdoSnapshot == null) return null;
+        ObjectChange objectChange = new ObjectChange(cdoSnapshot.getCommitMetadata(),
+            cdoSnapshot.getGlobalId(), cdoSnapshot.getVersion());
+        objectChange.convertChanges(diff.getChanges());
+        Document dbObject = toDocument((JsonObject)jsonConverter.toJsonElement(objectChange));
+        dbObject.append(GLOBAL_ID_KEY, diff.getChanges().get(0).getAffectedGlobalId().value());
+        return dbObject;
     }
 
     private MongoCollection<Document> snapshotsCollection() {
@@ -306,9 +351,9 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
 
     private void persistDiff(Commit commit, Optional<ClientSession> clientSession) {
         MongoCollection<Document> collection = diffsCollection();
-        List<Document> documents = commit.getDiff().getChanges().groupByCommit().stream().map(this::writeToDBObject)
-                        .collect(Collectors.toList());
-        transactionalInsertMany(collection, documents, clientSession);
+        if (commit.getDiff().getChanges().isEmpty()) return;
+        if (commit.getSnapshots().isEmpty()) return;
+        transactionalInsert(collection, writeDiffToDBObject(commit), clientSession);
     }
 
     private void persistHeadId(Commit commit, Optional<ClientSession> clientSession) {
@@ -336,7 +381,8 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
                 cache.put(snapshot);
                 return writeToDBObject(snapshot);
             }).collect(Collectors.toList());
-        }).flatMap(List::stream).collect(Collectors.toList());
+        }).flatMap(List::stream).filter(Objects::nonNull).collect(Collectors.toList());
+        if (documents.isEmpty()) return;
         transactionalInsertList(collection, documents, clientSession);
     }
 
@@ -360,8 +406,9 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
 
     private void persistDiffOfCommits(List<Commit> commits, Optional<ClientSession> clientSession) {
         MongoCollection<Document> collection = diffsCollection();
-        List<Document> documents = commits.stream().map(commit -> commit.getDiff().getChanges().groupByCommit().stream().map(this::writeToDBObject)
-            .collect(Collectors.toList())).flatMap(List::stream).collect(Collectors.toList());
+        List<Document> documents = commits.stream().map(this::writeDiffToDBObject).filter(
+            Objects::nonNull).collect(Collectors.toList());
+        if (documents.isEmpty()) return;
         transactionalInsertMany(collection, documents, clientSession);
     }
 

@@ -1,7 +1,5 @@
 package org.javers.spring.auditable.aspect.springdata;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import java.util.List;
 import org.aspectj.lang.JoinPoint;
 import org.javers.core.Javers;
@@ -28,21 +26,10 @@ public class AbstractSpringAuditableRepositoryAspect {
 
     protected void onSave(JoinPoint pjp, Object returnedObject) {
         getRepositoryInterface(pjp).ifPresent(i -> {
-              JaversSpringDataAuditable javersSpringDataAuditable =
-                  (JaversSpringDataAuditable) i.getAnnotation(JaversSpringDataAuditable.class);
               if (returnedObject instanceof Iterable) {
-                  List<Object> objects = (List)returnedObject;
-                  if (javersSpringDataAuditable.value() == JaversSpringDataAuditable.AuditMode.SHALLOW) {
-                    javersCommitAdvice.commitShallowObjectList(objects);
-                  } else {
-                    javersCommitAdvice.commitObjectList(objects);
-                  }
+                    javersCommitAdvice.commitObjectList((List)returnedObject);
               } else {
-                  if (javersSpringDataAuditable.value() == JaversSpringDataAuditable.AuditMode.SHALLOW) {
-                      javersCommitAdvice.commitShallowObject(returnedObject);
-                  } else {
-                      javersCommitAdvice.commitObject(returnedObject);
-                  }
+                  javersCommitAdvice.commitObject(returnedObject);
               }
         });
     }
@@ -60,8 +47,6 @@ public class AbstractSpringAuditableRepositoryAspect {
   protected void onDeleteList(JoinPoint pjp) {
     getRepositoryInterface(pjp).ifPresent( i -> {
       RepositoryMetadata metadata = DefaultRepositoryMetadata.getMetadata(i);
-      JaversSpringDataAuditable javersSpringDataAuditable =
-          (JaversSpringDataAuditable) i.getAnnotation(JaversSpringDataAuditable.class);
       List<Object> objects = AspectUtil.collectArguments(pjp);
       handleDeleteList(metadata, objects);
     });

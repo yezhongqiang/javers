@@ -94,11 +94,6 @@ public class JaversCommitAdvice {
         javers.commit(author, domainObject, propsForCommit(domainObject));
     }
 
-    public void commitShallowObject(Object domainObject) {
-        String author = authorProvider.provide();
-        javers.commitShallow(author, domainObject, propsForCommit(domainObject));
-    }
-
     public void commitShallowDelete(Object domainObject) {
         String author = authorProvider.provide();
 
@@ -118,11 +113,6 @@ public class JaversCommitAdvice {
     public void commitObjectList(List<Object> domainObjects) {
         String author = authorProvider.provide();
         javers.commitList(author, domainObjects, propsForCommit(domainObjects));
-    }
-
-    public void commitShallowObjectList(List<Object> domainObjects) {
-        String author = authorProvider.provide();
-        javers.commitShallowList(author, domainObjects, propsForCommit(domainObjects));
     }
 
     public void commitShallowDeleteList(List<Object> domainObjects) {

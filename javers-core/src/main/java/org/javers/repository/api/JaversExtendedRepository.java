@@ -1,6 +1,7 @@
 package org.javers.repository.api;
 
 import org.javers.common.collections.Lists;
+import org.javers.core.ObjectChange;
 import org.javers.core.commit.Commit;
 import org.javers.core.commit.CommitId;
 import org.javers.core.diff.Change;
@@ -50,6 +51,18 @@ public class JaversExtendedRepository implements JaversRepository {
         return filterChangesByPropertyNames(changes, queryParams);
     }
 
+    @Override
+    public List<ObjectChange> getChangeHistoryFromDB(GlobalId globalId, QueryParams queryParams) {
+        argumentsAreNotNull(queryParams);
+        return delegate.getChangeHistoryFromDB(globalId, queryParams);
+    }
+
+    @Override
+    public List<ObjectChange> getChangeHistoryFromDB(Set<ManagedType> givenClasses, QueryParams queryParams) {
+        argumentsAreNotNull(queryParams);
+        return delegate.getChangeHistoryFromDB(givenClasses, queryParams);
+    }
+
     public List<Change> getValueObjectChangeHistory(EntityType ownerEntity, String path, QueryParams queryParams) {
         argumentsAreNotNull(ownerEntity, path, queryParams);
 
@@ -62,6 +75,13 @@ public class JaversExtendedRepository implements JaversRepository {
 
         List<CdoSnapshot> snapshots = getSnapshots(queryParams);
         return getChangesIntroducedBySnapshots(snapshots);
+    }
+
+    @Override
+    public List<ObjectChange> getChangesFromDB(QueryParams queryParams) {
+        argumentsAreNotNull(queryParams);
+
+        return delegate.getChangesFromDB(queryParams);
     }
 
     @Override

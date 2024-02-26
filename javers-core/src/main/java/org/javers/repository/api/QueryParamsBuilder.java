@@ -32,6 +32,8 @@ public class QueryParamsBuilder {
     private SnapshotType snapshotType;
     private boolean loadCommitProps = true;
     private Integer snapshotQueryLimit;
+    private String searchText;
+    private boolean isRegex;
 
     public static QueryParamsBuilder copy(QueryParams that) {
         QueryParamsBuilder copy =  new QueryParamsBuilder(that.limit()).skip(that.skip());
@@ -241,7 +243,17 @@ public class QueryParamsBuilder {
         Validate.argumentCheck(limit > 0, "Limit is not a positive number.");
     }
 
+    public QueryParamsBuilder withSearchText(String searchText) {
+        this.searchText = searchText;
+        return this;
+    }
+
+    public QueryParamsBuilder withRegex(boolean isRegex) {
+        this.isRegex = isRegex;
+        return this;
+    }
+
     public QueryParams build() {
-        return new QueryParams(limit, skip, from, fromInstant, to, toInstant, commitIds, version, author, authorLikeIgnoreCase, commitProperties, commitPropertiesLike, aggregate, changedProperties, toCommitId, snapshotType, loadCommitProps, snapshotQueryLimit);
+        return new QueryParams(limit, skip, from, fromInstant, to, toInstant, commitIds, version, author, authorLikeIgnoreCase, commitProperties, commitPropertiesLike, aggregate, changedProperties, toCommitId, snapshotType, loadCommitProps, snapshotQueryLimit, searchText, isRegex);
     }
 }

@@ -77,10 +77,6 @@ class JaversCore implements Javers {
         return commitList(author, currentVersions, Collections.emptyMap());
     }
 
-    public Commit commitShallow(String author, Object currentVersion) {
-        return commitShallow(author, currentVersion, Collections.emptyMap());
-    }
-
     public CompletableFuture<Commit> commitAsync(String author, Object currentVersion, Executor executor) {
         return commitAsync(author, currentVersion, Collections.emptyMap(), executor);
     }
@@ -115,48 +111,6 @@ class JaversCore implements Javers {
 
         List<Commit> commits = currentVersions.stream()
             .map(currentVersion -> commitFactory.create(author, commitProperties, currentVersion))
-            .collect(Collectors.toList());
-        long stopCreate = System.currentTimeMillis();
-
-        persistList(commits);
-        long stop = System.currentTimeMillis();
-
-        logger.info(Arrays.toString(commits.toArray()) + ", done in " + (stop - start) +
-            " ms (diff:{} ms, persist:{} ms)", (stopCreate - start), (stop - stopCreate));
-        return commits;
-    }
-
-    public Commit commitShallow(String author, Object currentVersion, Map<String, String> commitProperties) {
-        long start = System.currentTimeMillis();
-
-        argumentIsNotNull(author);
-        argumentIsNotNull(commitProperties);
-
-        argumentIsNotNull(currentVersion);
-        assertJaversTypeNotValueTypeOrPrimitiveType(currentVersion);
-
-        Commit commit = commitFactory.createShallow(author, commitProperties, currentVersion);
-        long stopCreate = System.currentTimeMillis();
-
-        persist(commit);
-        long stop = System.currentTimeMillis();
-
-        logger.info(commit.toString()+", done in "+ (stop-start)+ " ms (diff:{} ms, persist:{} ms)",(stopCreate-start), (stop-stopCreate));
-        return commit;
-    }
-
-    @Override
-    public List<Commit> commitShallowList(String author, List<Object> currentVersions,
-                                          Map<String, String> commitProperties) {
-        long start = System.currentTimeMillis();
-
-        argumentIsNotNull(author);
-        argumentIsNotNull(commitProperties);
-
-        argumentIsNotNull(currentVersions);
-
-        List<Commit> commits = currentVersions.stream()
-            .map(currentVersion -> commitFactory.createShallow(author, commitProperties, currentVersion))
             .collect(Collectors.toList());
         long stopCreate = System.currentTimeMillis();
 
@@ -316,6 +270,12 @@ class JaversCore implements Javers {
     public Changes findChanges(JqlQuery query){
         Validate.argumentIsNotNull(query);
         return new Changes(queryRunner.queryForChanges(query), configuration.getPrettyValuePrinter());
+    }
+
+    @Override
+    public List<ObjectChange> findChangesFromDB(JqlQuery query) {
+        Validate.argumentIsNotNull(query);
+        return queryRunner.queryForChangesFromDB(query);
     }
 
     @Override
