@@ -1,6 +1,9 @@
 package org.javers.core;
 
 import com.google.common.base.Joiner;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,6 +47,7 @@ public final class ObjectChange {
       private String propertyName;
       private Object left;
       private Object right;
+      private String leftAsString;
       private String rightAsString;
 
       public Object getLeft() {
@@ -76,6 +80,14 @@ public final class ObjectChange {
 
       public ChangeType getChangeType() {
         return changeType;
+      }
+
+      public String getLeftAsString() {
+        return leftAsString;
+      }
+
+      public void setLeftAsString(String leftAsString) {
+        this.leftAsString = leftAsString;
       }
     }
 
@@ -122,23 +134,32 @@ public final class ObjectChange {
   private void addMapChange(MapChange mapChange) {
     ChangedProperty changedProperty = new ChangedProperty();
     changedProperty.setChangeType(ChangeType.UPDATE);
-    changedProperty.setLeft(mapChange.getLeft());
-
-    Map processedMap = getPopulatedMap(mapChange);
-    changedProperty.setRight(processedMap);
     changedProperty.setPropertyName(mapChange.getPropertyNameWithPath());
-    changedProperty.setRightAsString(convertMapToString(processedMap));
+
+    Map leftMap = getPopulatedMap(mapChange, mapChange.getLeft());
+    changedProperty.setLeft(leftMap);
+    changedProperty.setLeftAsString(convertMapToString(leftMap));
+
+    Map rightMap = getPopulatedMap(mapChange, mapChange.getRight());
+    changedProperty.setRight(rightMap);
+    changedProperty.setRightAsString(convertMapToString(rightMap));
+
     changedProperties.add(changedProperty);
   }
 
   private void addContainerChange(ContainerChange containerChange) {
     ChangedProperty changedProperty = new ChangedProperty();
     changedProperty.setChangeType(ChangeType.UPDATE);
-    changedProperty.setLeft(containerChange.getLeft());
-    List<?> processedList = getPopulatedList(containerChange);
-    changedProperty.setRight(processedList);
     changedProperty.setPropertyName(containerChange.getPropertyNameWithPath());
-    changedProperty.setRightAsString(convertContainerToString(processedList));
+
+    List<?> leftList = getPopulatedList(containerChange, containerChange.getLeft());
+    changedProperty.setRight(leftList);
+    changedProperty.setRightAsString(convertContainerToString(leftList));
+
+    List<?> rightList = getPopulatedList(containerChange, containerChange.getRight());
+    changedProperty.setRight(rightList);
+    changedProperty.setRightAsString(convertContainerToString(rightList));
+
     changedProperties.add(changedProperty);
   }
 
@@ -146,22 +167,30 @@ public final class ObjectChange {
     ReferenceChange referenceChange = change;
     ChangedProperty changedProperty = new ChangedProperty();
     changedProperty.setChangeType(ChangeType.UPDATE);
+    changedProperty.setPropertyName(referenceChange.getPropertyNameWithPath());
+
     changedProperty.setLeft(referenceChange.getLeft());
+    changedProperty.setRightAsString(convertReferenceToString(referenceChange.getLeftObject()));
 
     changedProperty.setRight(referenceChange.getRight());
-    changedProperty.setPropertyName(referenceChange.getPropertyNameWithPath());
     changedProperty.setRightAsString(convertReferenceToString(referenceChange.getRightObject()));
+
     changedProperties.add(changedProperty);
   }
 
   private void addValueChange(ValueChange valueChange) {
     ChangedProperty changedProperty = new ChangedProperty();
     changedProperty.setChangeType(ChangeType.UPDATE);
-    changedProperty.setLeft(valueChange.getLeft());
-    Object processedObject = getPopulatedObject(valueChange);
-    changedProperty.setRight(processedObject);
     changedProperty.setPropertyName(valueChange.getPropertyNameWithPath());
-    changedProperty.setRightAsString(convertValueToString(processedObject));
+
+    Object leftObject = getPopulatedObject(valueChange, valueChange.getLeft());
+    changedProperty.setRight(leftObject);
+    changedProperty.setRightAsString(convertValueToString(leftObject));
+
+    Object rightObject = getPopulatedObject(valueChange, valueChange.getRight());
+    changedProperty.setRight(rightObject);
+    changedProperty.setRightAsString(convertValueToString(rightObject));
+
     changedProperties.add(changedProperty);
   }
 
@@ -185,29 +214,13 @@ public final class ObjectChange {
     changedProperties.add(changedProperty);
   }
 
-  private String convertObjectToString(Optional<Object> object) {
-      return object.orElse("").toString();
-    }
-
-    private String convertMapToString(Object right) {
-      return Joiner.on(",").withKeyValueSeparator("=").join(Maps.wrapNull(right));
-    }
-
-    private String convertContainerToString(List<?> processedList) {
-      if (processedList == null) {
-        return null;
-      }
-      return processedList.toString();
-    }
-
-  private List getPopulatedList(ContainerChange change) {
-      Object right = change.getRight();
-      if (right == null) return null;
+  private List getPopulatedList(ContainerChange change, Object obj) {
+      if (obj == null) return null;
       List<?> changeList;
       if (change instanceof ArrayChange) {
-        changeList = Arrays.asList(right);
+        changeList = Arrays.asList(obj);
       } else {
-        changeList = (List<?>) right;
+        changeList = (List<?>) obj;
       }
       return changeList.stream().map(element -> {
         if (element instanceof ValueObjectId) {
@@ -218,12 +231,11 @@ public final class ObjectChange {
       }).collect(Collectors.toList());
   }
 
-  private Map getPopulatedMap(MapChange change) {
-    Object right = change.getRight();
-    if (right == null) return null;
-    Map<Object, Object> rightMap = (Map<Object, Object>)right;
+  private Map getPopulatedMap(MapChange change, Object obj) {
+    if (obj == null) return null;
+    Map<Object, Object> objMap = (Map<Object, Object>)obj;
     Map<Object, Object> result = new HashMap<>();
-    rightMap.forEach((k,v) -> {
+    objMap.forEach((k,v) -> {
       if (v instanceof ValueObjectId) {
         result.put(k, getRealObject((ValueObjectId) v, change));
       }
@@ -231,13 +243,25 @@ public final class ObjectChange {
     return result;
   }
 
-  private Object getPopulatedObject(ValueChange change) {
-    Object right = change.getRight();
-    if (right == null) return null;
-    if (right instanceof ValueObjectId) {
-      return getRealObject((ValueObjectId) right, change);
+  private Object getPopulatedObject(ValueChange change, Object obj) {
+    if (obj == null) return null;
+    if (obj instanceof ValueObjectId) {
+      return getRealObject((ValueObjectId) obj, change);
+    } else {
+      Object affectedObject = change.getAffectedObject().orElse(null);
+      if (affectedObject != null) {
+        obj = getReferToObject(change, affectedObject, obj);
+      }
     }
-    return right;
+    return obj;
+  }
+
+  private Object getReferToObject(ValueChange change, Object affectedObject, Object obj) {
+      if (affectedObject instanceof DiffIdResolver) {
+        DiffIdResolver diffIdResolver = (DiffIdResolver) affectedObject;
+        return diffIdResolver.resolve(change.getPropertyName(), obj);
+      }
+      return obj;
   }
 
   private Object getRealObject(ValueObjectId valueObjectId, Change change) {
@@ -246,21 +270,57 @@ public final class ObjectChange {
       String[] fragmentSplit = valueObjectId.getFragment().split("/");
       Object fieldValue = ReflectionUtils.getFieldVal(false, affectedObj, fragmentSplit[0]);
       if (fieldValue instanceof List) {
-        return ((List<?>)fieldValue).get(Integer.parseInt(fragmentSplit[1]));
+        int index = Integer.parseInt(fragmentSplit[1]);
+        if (((List<?>)fieldValue).size() > index) return ((List<?>)fieldValue).get(index);
+        return null;
       } else {
         return fieldValue;
       }
   }
 
+  public List<ChangedProperty> getChanges() {
+    return this.changedProperties;
+  }
+
   private String convertReferenceToString(Optional<Object> rightObject) {
-        return rightObject.orElse("").toString();
-    }
+      Object obj = rightObject.orElse(null);
+      return toDiffString(obj);
+  }
 
-    private String convertValueToString(Object right) {
-        return String.valueOf(right);
-    }
+  private String toDiffString(Object obj) {
+      if (obj == null) return null;
+      if (obj instanceof DiffString) {
+        return ((DiffString) obj).toDiffString();
+      }
+      return obj.toString();
+  }
 
-    public List<ChangedProperty> getChanges() {
-        return this.changedProperties;
+  private String convertValueToString(Object obj) {
+      return toDiffString(obj);
+  }
+
+  private String convertMapToString(Object obj) {
+    Map map = Maps.wrapNull(obj);
+    if (map.isEmpty()) return null;
+    StringBuilder stringBuilder = new StringBuilder();
+    map.forEach((k,v)->{
+      stringBuilder.append(toDiffString(k)).append("=").append(toDiffString(v)).append("=");
+    });
+    return stringBuilder.deleteCharAt(stringBuilder.length()-1).toString();
+  }
+
+  private String convertContainerToString(List<?> processedList) {
+    if (processedList == null || processedList.isEmpty()) {
+      return null;
     }
+    StringBuilder stringBuilder = new StringBuilder();
+    stringBuilder.append("[");
+    processedList.forEach(v->{
+      stringBuilder.append(toDiffString(v)).append(",");
+    });
+    stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+    stringBuilder.append("]");
+    return stringBuilder.toString();
+  }
+
 }
