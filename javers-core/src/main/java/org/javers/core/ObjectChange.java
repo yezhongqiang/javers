@@ -1,12 +1,9 @@
 package org.javers.core;
 
-import com.google.common.base.Joiner;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import nonapi.io.github.classgraph.reflection.ReflectionUtils;
 import org.javers.common.collections.Arrays;
@@ -22,7 +19,10 @@ import org.javers.core.diff.changetype.ValueChange;
 import org.javers.core.diff.changetype.container.ArrayChange;
 import org.javers.core.diff.changetype.container.ContainerChange;
 import org.javers.core.diff.changetype.map.MapChange;
+import org.javers.core.json.JsonConverter;
+import org.javers.core.metamodel.object.CdoSnapshot;
 import org.javers.core.metamodel.object.GlobalId;
+import org.javers.core.metamodel.object.InstanceId;
 import org.javers.core.metamodel.object.ValueObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +36,10 @@ public final class ObjectChange {
     public GlobalId getGlobalId() {
       return globalId;
     }
+
+    private final transient Function<GlobalId, Optional<CdoSnapshot>> cdoSnapshotCall;
+
+    private final transient JsonConverter jsonConverter;
 
     public enum ChangeType {
       NEW,
@@ -96,7 +100,10 @@ public final class ObjectChange {
     private final long snapshotVersion;
     private final List<ChangedProperty> changedProperties = new ArrayList<>();
 
-    public ObjectChange(CommitMetadata commitMetadata, GlobalId globalId, long snapshotVersion) {
+    public ObjectChange(Function<GlobalId, Optional<CdoSnapshot>> cdoSnapshotCall,
+                        JsonConverter jsonConverter, CommitMetadata commitMetadata, GlobalId globalId, long snapshotVersion) {
+      this.cdoSnapshotCall = cdoSnapshotCall;
+      this.jsonConverter = jsonConverter;
       this.commitMetadata = commitMetadata;
       this.globalId = globalId;
       this.snapshotVersion = snapshotVersion;
@@ -107,11 +114,6 @@ public final class ObjectChange {
     }
 
     public void convertChanges(List<Change> changes) {
-      List<Change> newOrRemoveObjectChanges = changes.stream().filter(change -> change instanceof NewObject || change instanceof ObjectRemoved).collect(
-          Collectors.toList());
-      if (!newOrRemoveObjectChanges.isEmpty()) {
-        changes = newOrRemoveObjectChanges;
-      }
       changes.forEach(change -> {
         if (change instanceof NewObject) {
           addNewObjectChange((NewObject) change);
@@ -153,8 +155,8 @@ public final class ObjectChange {
     changedProperty.setPropertyName(containerChange.getPropertyNameWithPath());
 
     List<?> leftList = getPopulatedList(containerChange, containerChange.getLeft());
-    changedProperty.setRight(leftList);
-    changedProperty.setRightAsString(convertContainerToString(leftList));
+    changedProperty.setLeft(leftList);
+    changedProperty.setLeftAsString(convertContainerToString(leftList));
 
     List<?> rightList = getPopulatedList(containerChange, containerChange.getRight());
     changedProperty.setRight(rightList);
@@ -163,19 +165,41 @@ public final class ObjectChange {
     changedProperties.add(changedProperty);
   }
 
-  private void addReferenceChange(ReferenceChange change) {
-    ReferenceChange referenceChange = change;
+  private void addReferenceChange(ReferenceChange referenceChange) {
     ChangedProperty changedProperty = new ChangedProperty();
     changedProperty.setChangeType(ChangeType.UPDATE);
     changedProperty.setPropertyName(referenceChange.getPropertyNameWithPath());
 
     changedProperty.setLeft(referenceChange.getLeft());
-    changedProperty.setRightAsString(convertReferenceToString(referenceChange.getLeftObject()));
+    Optional<Object> leftObject = getLeftObject(referenceChange.getLeftObject());
+    changedProperty.setLeftAsString(convertReferenceToString(leftObject));
 
     changedProperty.setRight(referenceChange.getRight());
     changedProperty.setRightAsString(convertReferenceToString(referenceChange.getRightObject()));
 
     changedProperties.add(changedProperty);
+  }
+
+  private Optional<Object> getLeftObject(Optional<Object> leftObject) {
+    Object valueObject = ((Optional<?>) leftObject).orElse(null);
+    if (valueObject instanceof InstanceId) {
+      valueObject = getValueObject((InstanceId) valueObject, valueObject);
+      leftObject = Optional.ofNullable(valueObject);
+    }
+    return leftObject;
+  }
+
+  private Object getValueObject(InstanceId instanceId, Object valueObject) {
+    try {
+      CdoSnapshot cdoSnapshot = cdoSnapshotCall.apply(instanceId.masterObjectId()).orElse(null);
+      if (cdoSnapshot != null) {
+        valueObject =
+            cdoSnapshot.getState().convertToObject(jsonConverter, Class.forName(instanceId.getTypeName()));
+      }
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+    return valueObject;
   }
 
   private void addValueChange(ValueChange valueChange) {
@@ -184,12 +208,12 @@ public final class ObjectChange {
     changedProperty.setPropertyName(valueChange.getPropertyNameWithPath());
 
     Object leftObject = getPopulatedObject(valueChange, valueChange.getLeft());
-    changedProperty.setRight(leftObject);
-    changedProperty.setRightAsString(convertValueToString(leftObject));
+    changedProperty.setLeft(leftObject);
+    changedProperty.setLeftAsString(convertObjectToString(leftObject));
 
     Object rightObject = getPopulatedObject(valueChange, valueChange.getRight());
     changedProperty.setRight(rightObject);
-    changedProperty.setRightAsString(convertValueToString(rightObject));
+    changedProperty.setRightAsString(convertObjectToString(rightObject));
 
     changedProperties.add(changedProperty);
   }
@@ -197,9 +221,11 @@ public final class ObjectChange {
   private void addObjectRemovedChange(ObjectRemoved objectRemoved) {
     ChangedProperty changedProperty = new ChangedProperty();
     changedProperty.setChangeType(ChangeType.DELETE);
-    changedProperty.setLeft(null);
-    changedProperty.setRight(null);
     changedProperty.setPropertyName(objectRemoved.getAffectedGlobalId().value());
+    changedProperty.setLeft(null);
+    changedProperty.setLeftAsString(convertObjectToString(objectRemoved.getAffectedObject()));
+
+    changedProperty.setRight(null);
     changedProperty.setRightAsString(null);
     changedProperties.add(changedProperty);
   }
@@ -207,10 +233,13 @@ public final class ObjectChange {
   private void addNewObjectChange(NewObject newObject) {
     ChangedProperty changedProperty = new ChangedProperty();
     changedProperty.setChangeType(ChangeType.NEW);
-    changedProperty.setLeft(null);
-    changedProperty.setRight(null);
     changedProperty.setPropertyName(newObject.getAffectedGlobalId().value());
-    changedProperty.setRightAsString(null);
+
+    changedProperty.setLeft(null);
+    changedProperty.setLeftAsString(null);
+
+    changedProperty.setRight(null);
+    changedProperty.setRightAsString(convertObjectToString(newObject.getAffectedObject()));
     changedProperties.add(changedProperty);
   }
 
@@ -282,20 +311,22 @@ public final class ObjectChange {
     return this.changedProperties;
   }
 
-  private String convertReferenceToString(Optional<Object> rightObject) {
-      Object obj = rightObject.orElse(null);
+  private String convertReferenceToString(Optional<Object> referenceObject) {
+      Object obj = referenceObject.orElse(null);
       return toDiffString(obj);
   }
 
   private String toDiffString(Object obj) {
-      if (obj == null) return null;
+      if (obj instanceof Optional) {
+        obj = ((Optional<?>) obj).orElse(null);
+      }
       if (obj instanceof DiffString) {
         return ((DiffString) obj).toDiffString();
       }
-      return obj.toString();
+      return obj == null ? null : obj.toString();
   }
 
-  private String convertValueToString(Object obj) {
+  private String convertObjectToString(Object obj) {
       return toDiffString(obj);
   }
 

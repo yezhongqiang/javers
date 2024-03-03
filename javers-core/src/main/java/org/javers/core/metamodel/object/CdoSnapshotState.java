@@ -1,10 +1,12 @@
 package org.javers.core.metamodel.object;
 
+import com.google.gson.JsonElement;
 import org.javers.common.collections.Arrays;
 import org.javers.common.collections.Defaults;
 import org.javers.common.collections.Lists;
 import org.javers.common.collections.Sets;
 import org.javers.common.validation.Validate;
+import org.javers.core.json.JsonConverter;
 import org.javers.core.metamodel.property.Property;
 
 import java.util.*;
@@ -138,5 +140,10 @@ public class CdoSnapshotState {
         List<String> propertyList = new ArrayList<>(properties.keySet());
         Collections.sort(propertyList);
         return propertyList;
+    }
+
+    public <T> T convertToObject(JsonConverter jsonConverter, Class<T> entityClass) {
+        JsonElement jsonElement = jsonConverter.toJsonElement(properties);
+        return jsonConverter.fromJson(jsonElement, entityClass);
     }
 }

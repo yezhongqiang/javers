@@ -5,13 +5,15 @@ import com.mongodb.client.*;
 import com.google.gson.JsonObject;
 import com.mongodb.BasicDBObject;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.InsertManyOptions;
+import java.util.concurrent.Callable;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.javers.common.string.RegexEscape;
 import org.javers.common.validation.Validate;
-import org.javers.core.ObjectChange;
 import org.javers.core.CommitIdGenerator;
 import org.javers.core.CoreConfiguration;
+import org.javers.core.ObjectChange;
 import org.javers.core.commit.Commit;
 import org.javers.core.commit.CommitId;
 import org.javers.core.diff.Diff;
@@ -320,7 +322,8 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
         if (commit.getSnapshots().isEmpty()) return null;
         CdoSnapshot cdoSnapshot = commit.getSnapshots().stream().filter(cdo->!cdo.getGlobalId().value().contains("#")).findFirst().orElse(null);
         if (cdoSnapshot == null) return null;
-        ObjectChange objectChange = new ObjectChange(cdoSnapshot.getCommitMetadata(),
+        ObjectChange objectChange = new ObjectChange((globalId)->cache.getLatest(globalId),
+            jsonConverter, cdoSnapshot.getCommitMetadata(),
             cdoSnapshot.getGlobalId(), cdoSnapshot.getVersion());
         objectChange.convertChanges(diff.getChanges());
         Document dbObject = toDocument((JsonObject)jsonConverter.toJsonElement(objectChange));
@@ -383,7 +386,7 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
             }).collect(Collectors.toList());
         }).flatMap(List::stream).filter(Objects::nonNull).collect(Collectors.toList());
         if (documents.isEmpty()) return;
-        transactionalInsertList(collection, documents, clientSession);
+        transactionalInsertMany(collection, documents, clientSession);
     }
 
     private void persistHeadIdOfCommits(List<Commit> commits, Optional<ClientSession> clientSession) {
@@ -584,12 +587,30 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
                 .orElseGet(() -> collection.insertOne(document));
     }
 
+    private Object retryRun(Callable callable, int retryTimes, int interval) {
+        for (int i = 0; i < retryTimes; i++) {
+            try {
+                return callable.call();
+            } catch (Exception e) {
+                try {
+                    Thread.sleep(interval);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+              throw new RuntimeException(e);
+            }
+        }
+        return null;
+    }
     private void transactionalInsertMany(
             MongoCollection<Document> collection,
             List<Document> documents,
             Optional<ClientSession> clientSession) {
-        clientSession.map(s-> collection.insertMany(s, documents))
-                .orElseGet(() -> collection.insertMany(documents));
+        InsertManyOptions insertManyOptions = new InsertManyOptions();
+        insertManyOptions.bypassDocumentValidation(true);
+        clientSession.map(s -> retryRun(()->collection.insertMany(s, documents, insertManyOptions),
+                3, 10))
+            .orElseGet(() -> collection.insertMany(documents, insertManyOptions));
     }
 
     private void transactionalUpdate(
@@ -598,13 +619,5 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
             Optional<ClientSession> clientSession) {
         clientSession.map(s-> collection.updateOne(s, filter, update))
                 .orElseGet(() -> collection.updateOne(filter, update));
-    }
-
-    private void transactionalInsertList(
-            MongoCollection<Document> collection,
-            List<Document> documents,
-            Optional<ClientSession> clientSession) {
-        clientSession.map(s-> collection.insertMany(s, documents))
-                .orElseGet(() -> collection.insertMany(documents));
     }
 }
