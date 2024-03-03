@@ -5,7 +5,6 @@ import com.mongodb.client.*;
 import com.google.gson.JsonObject;
 import com.mongodb.BasicDBObject;
 import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.InsertManyOptions;
 import java.util.concurrent.Callable;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -606,11 +605,9 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
             MongoCollection<Document> collection,
             List<Document> documents,
             Optional<ClientSession> clientSession) {
-        InsertManyOptions insertManyOptions = new InsertManyOptions();
-        insertManyOptions.bypassDocumentValidation(true);
-        clientSession.map(s -> retryRun(()->collection.insertMany(s, documents, insertManyOptions),
+        clientSession.map(s -> retryRun(()->collection.insertMany(s, documents),
                 3, 10))
-            .orElseGet(() -> collection.insertMany(documents, insertManyOptions));
+            .orElseGet(() -> collection.insertMany(documents));
     }
 
     private void transactionalUpdate(
