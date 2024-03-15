@@ -36,7 +36,7 @@ subprojects {
     apply plugin: 'com.adarshr.test-logger'
 
     project.group = 'org.javers'
-    project.version = 8.6
+    project.version = 8.7
 
     repositories {
         mavenCentral()

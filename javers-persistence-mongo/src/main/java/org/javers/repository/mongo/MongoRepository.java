@@ -167,7 +167,7 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
         List<ObjectChange> objectChanges = new ArrayList<>();
         findIterable.forEach(document -> {
             JsonElement jsonElement = fromDocument(document);
-            System.out.println(jsonElement);
+            //System.out.println(jsonElement);
             ObjectChange objectChange = jsonConverter.fromJson(jsonElement, ObjectChange.class);
             objectChanges.add(objectChange);
         });
@@ -326,7 +326,7 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
             cdoSnapshot.getGlobalId(), cdoSnapshot.getVersion());
         objectChange.convertChanges(diff.getChanges());
         Document dbObject = toDocument((JsonObject)jsonConverter.toJsonElement(objectChange));
-        dbObject.append(GLOBAL_ID_KEY, diff.getChanges().get(0).getAffectedGlobalId().value());
+        dbObject.append(GLOBAL_ID_KEY, cdoSnapshot.getGlobalId().value());
         return dbObject;
     }
 
@@ -348,6 +348,7 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
             cache.put(snapshot);
             return writeToDBObject(snapshot);
         }).collect(Collectors.toList());
+        if (documents.isEmpty()) return;
         transactionalInsertMany(collection, documents, clientSession);
     }
 
@@ -384,7 +385,6 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
                 return writeToDBObject(snapshot);
             }).collect(Collectors.toList());
         }).flatMap(List::stream).filter(Objects::nonNull).collect(Collectors.toList());
-        if (documents.isEmpty()) return;
         transactionalInsertMany(collection, documents, clientSession);
     }
 
@@ -410,7 +410,6 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
         MongoCollection<Document> collection = diffsCollection();
         List<Document> documents = commits.stream().map(this::writeDiffToDBObject).filter(
             Objects::nonNull).collect(Collectors.toList());
-        if (documents.isEmpty()) return;
         transactionalInsertMany(collection, documents, clientSession);
     }
 
@@ -582,6 +581,7 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
             MongoCollection<Document> collection,
             Document document,
             Optional<ClientSession> clientSession) {
+        if (document == null) return;
         clientSession.map(s-> collection.insertOne(s, document))
                 .orElseGet(() -> collection.insertOne(document));
     }
@@ -605,6 +605,7 @@ public class MongoRepository implements JaversRepository, ConfigurationAware {
             MongoCollection<Document> collection,
             List<Document> documents,
             Optional<ClientSession> clientSession) {
+        if (documents == null || documents.isEmpty()) return;
         clientSession.map(s -> retryRun(()->collection.insertMany(s, documents),
                 3, 10))
             .orElseGet(() -> collection.insertMany(documents));

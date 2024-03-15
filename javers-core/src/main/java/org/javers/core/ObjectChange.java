@@ -1,5 +1,6 @@
 package org.javers.core;
 
+import com.google.gson.JsonElement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -183,18 +184,18 @@ public final class ObjectChange {
   private Optional<Object> getLeftObject(Optional<Object> leftObject) {
     Object valueObject = ((Optional<?>) leftObject).orElse(null);
     if (valueObject instanceof InstanceId) {
-      valueObject = getValueObject((InstanceId) valueObject, valueObject);
+      valueObject = getValueObject( ((InstanceId) valueObject).masterObjectId(), valueObject);
       leftObject = Optional.ofNullable(valueObject);
     }
     return leftObject;
   }
 
-  private Object getValueObject(InstanceId instanceId, Object valueObject) {
+  private Object getValueObject(GlobalId globalId, Object valueObject) {
     try {
-      CdoSnapshot cdoSnapshot = cdoSnapshotCall.apply(instanceId.masterObjectId()).orElse(null);
+      CdoSnapshot cdoSnapshot = cdoSnapshotCall.apply(globalId).orElse(null);
       if (cdoSnapshot != null) {
-        valueObject =
-            cdoSnapshot.getState().convertToObject(jsonConverter, Class.forName(instanceId.getTypeName()));
+        valueObject =convertToObject(cdoSnapshot.getState().getProperties(), Class.forName(
+            globalId.getTypeName()));
       }
     } catch (ClassNotFoundException e) {
       throw new RuntimeException(e);
@@ -300,8 +301,12 @@ public final class ObjectChange {
       Object fieldValue = ReflectionUtils.getFieldVal(false, affectedObj, fragmentSplit[0]);
       if (fieldValue instanceof List) {
         int index = Integer.parseInt(fragmentSplit[1]);
-        if (((List<?>)fieldValue).size() > index) return ((List<?>)fieldValue).get(index);
-        return null;
+        if (((List<?>)fieldValue).size() > index) {
+          return ((List<?>)fieldValue).get(index);
+        }
+        else {
+          return getValueObject(valueObjectId, null);
+        }
       } else {
         return fieldValue;
       }
@@ -352,6 +357,31 @@ public final class ObjectChange {
     stringBuilder.deleteCharAt(stringBuilder.length() - 1);
     stringBuilder.append("]");
     return stringBuilder.toString();
+  }
+
+  public <T> T convertToObject(Map<String, Object> properties, Class<T> entityClass) {
+      Map<String, Object> objectMap = populateProperties(cdoSnapshotCall, properties);
+      JsonElement jsonElement = jsonConverter.toJsonElement(objectMap);
+      return jsonConverter.fromJson(jsonElement, entityClass);
+  }
+
+  private Map<String, Object> populateProperties(Function<GlobalId, Optional<CdoSnapshot>> cdoSnapshotCall, Map<String, Object> properties) {
+      Map<String, Object> result = new HashMap<>();
+      properties.forEach((k,v)-> {
+        if (v instanceof GlobalId) {
+          GlobalId globalId1 = (GlobalId)v;
+          CdoSnapshot cdoSnapshot = cdoSnapshotCall.apply(globalId1).orElse(null);
+          if (cdoSnapshot != null) {
+            try {
+              v = convertToObject(cdoSnapshot.getState().getProperties(), Class.forName(globalId1.getTypeName()));
+            } catch (ClassNotFoundException e) {
+              throw new RuntimeException(e);
+            }
+          }
+        }
+        result.put(k, v);
+      });
+      return result;
   }
 
 }
