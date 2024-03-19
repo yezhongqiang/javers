@@ -19,6 +19,9 @@ import org.javers.core.diff.changetype.ReferenceChange;
 import org.javers.core.diff.changetype.ValueChange;
 import org.javers.core.diff.changetype.container.ArrayChange;
 import org.javers.core.diff.changetype.container.ContainerChange;
+import org.javers.core.diff.changetype.map.EntryAdded;
+import org.javers.core.diff.changetype.map.EntryRemoved;
+import org.javers.core.diff.changetype.map.EntryValueChange;
 import org.javers.core.diff.changetype.map.MapChange;
 import org.javers.core.json.JsonConverter;
 import org.javers.core.metamodel.object.CdoSnapshot;
@@ -135,19 +138,38 @@ public final class ObjectChange {
     }
 
   private void addMapChange(MapChange mapChange) {
-    ChangedProperty changedProperty = new ChangedProperty();
-    changedProperty.setChangeType(ChangeType.UPDATE);
-    changedProperty.setPropertyName(mapChange.getPropertyNameWithPath());
+      mapChange.getEntryAddedChanges().forEach(c -> {
+          EntryAdded addChange = ((EntryAdded)c);
+          ObjectChange.ChangedProperty changedProperty = new ChangedProperty();
+          changedProperty.setChangeType(ChangeType.NEW);
+          changedProperty.setPropertyName(mapChange.getPropertyNameWithPath() + "." + addChange.getKey().toString());
+          changedProperty.setRight(addChange.getValue());
+          changedProperty.setRightAsString(toDiffString(addChange.getValue()));
+          changedProperties.add(changedProperty);
+      });
 
-    Map leftMap = getPopulatedMap(mapChange, mapChange.getLeft());
-    changedProperty.setLeft(leftMap);
-    changedProperty.setLeftAsString(convertMapToString(leftMap));
 
-    Map rightMap = getPopulatedMap(mapChange, mapChange.getRight());
-    changedProperty.setRight(rightMap);
-    changedProperty.setRightAsString(convertMapToString(rightMap));
+      mapChange.getEntryRemovedChanges().forEach(c -> {
+          EntryRemoved removeChange = (EntryRemoved) c;
+          ChangedProperty changedProperty = new ChangedProperty();
+          changedProperty.setChangeType(ChangeType.DELETE);
+          changedProperty.setPropertyName(mapChange.getPropertyNameWithPath() + "." + removeChange.getKey().toString());
+          changedProperty.setLeft(removeChange.getValue());
+          changedProperty.setLeftAsString(toDiffString(removeChange.getValue()));
+          changedProperties.add(changedProperty);
+      });
 
-    changedProperties.add(changedProperty);
+      mapChange.getEntryValueChanges().forEach(c -> {
+          EntryValueChange updateChange = ((EntryValueChange) c);
+          ChangedProperty changedProperty = new ChangedProperty();
+          changedProperty.setChangeType(ChangeType.UPDATE);
+          changedProperty.setPropertyName(mapChange.getPropertyNameWithPath() + "." + updateChange.getKey().toString());
+          changedProperty.setLeft(updateChange.getLeftValue());
+          changedProperty.setRight(updateChange.getRightValue());
+          changedProperty.setLeftAsString(toDiffString(updateChange.getLeftValue()));
+          changedProperty.setRightAsString(toDiffString(updateChange.getRightValue()));
+          changedProperties.add(changedProperty);
+      });
   }
 
   private void addContainerChange(ContainerChange containerChange) {
